@@ -1,0 +1,808 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0f766e">
+<title>TalkMate</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+:root{
+  --bg:#f6f7f8; --card:#ffffff; --ink:#1a2330; --muted:#67707d;
+  --brand:#0f766e; --brand-soft:#e0f2f0; --line:#e5e8ec;
+  --ai:#ffffff; --me:#0f766e; --me-ink:#ffffff;
+  --danger:#c0392b; --ok:#1e8e5a;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg:#10151c; --card:#1a212b; --ink:#e8ecf1; --muted:#94a0ae;
+    --brand:#2dd4bf; --brand-soft:#123833; --line:#2a333f;
+    --ai:#1f2833; --me:#0f766e; --me-ink:#ffffff;
+  }
+}
+*{box-sizing:border-box; -webkit-tap-highlight-color:transparent}
+html,body{height:100%}
+body{
+  margin:0; background:var(--bg); color:var(--ink);
+  font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  font-size:16px; display:flex; flex-direction:column;
+  padding:env(safe-area-inset-top) 0 0 0;
+}
+header{
+  display:flex; align-items:center; gap:8px; padding:10px 14px;
+  background:var(--card); border-bottom:1px solid var(--line);
+}
+header .logo{font-weight:800; color:var(--brand); font-size:18px}
+header .sub{color:var(--muted); font-size:12px; margin-left:auto}
+main{flex:1; overflow:hidden; display:flex; flex-direction:column}
+.view{flex:1; overflow-y:auto; display:none; flex-direction:column}
+.view.active{display:flex}
+nav{
+  display:flex; background:var(--card); border-top:1px solid var(--line);
+  padding-bottom:env(safe-area-inset-bottom);
+}
+nav button{
+  flex:1; padding:9px 0 7px; background:none; border:none; color:var(--muted);
+  font-size:11px; display:flex; flex-direction:column; align-items:center; gap:2px; cursor:pointer;
+}
+nav button .ic{font-size:20px; line-height:1}
+nav button.on{color:var(--brand); font-weight:700}
+.btn{
+  border:none; border-radius:12px; padding:11px 16px; font-size:15px; font-weight:600;
+  background:var(--brand); color:#fff; cursor:pointer;
+}
+.btn.ghost{background:var(--brand-soft); color:var(--brand)}
+.btn.small{padding:7px 12px; font-size:13px; border-radius:10px}
+.btn:disabled{opacity:.5}
+.card{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px; margin:0 0 12px}
+.pad{padding:14px}
+h2{font-size:16px; margin:0 0 10px}
+label{display:block; font-size:13px; color:var(--muted); margin:10px 0 4px}
+input[type=text],input[type=password],select,textarea{
+  width:100%; padding:10px 12px; border:1px solid var(--line); border-radius:10px;
+  background:var(--bg); color:var(--ink); font-size:15px; font-family:inherit;
+}
+.hint{font-size:12px; color:var(--muted); margin-top:6px; line-height:1.5}
+.hint a{color:var(--brand)}
+
+/* ---- Chat ---- */
+#chatScroll{flex:1; overflow-y:auto; padding:14px 12px 6px; scroll-behavior:smooth}
+.msg{max-width:86%; margin:0 0 10px; padding:10px 13px; border-radius:16px; line-height:1.5; white-space:pre-wrap; word-wrap:break-word}
+.msg.ai{background:var(--ai); border:1px solid var(--line); border-bottom-left-radius:6px}
+.msg.me{background:var(--me); color:var(--me-ink); margin-left:auto; border-bottom-right-radius:6px}
+.msg.sys{background:var(--brand-soft); color:var(--ink); border:1px dashed var(--brand); max-width:100%; font-size:14px}
+.msg .w{cursor:pointer; border-radius:4px}
+.msg .w:active{background:var(--brand-soft)}
+.msg .w.saved{background:var(--brand-soft); color:var(--brand); font-weight:600}
+.typing{color:var(--muted); font-size:13px; padding:0 4px 8px; display:none}
+#chatBar{display:flex; gap:8px; padding:8px 10px calc(8px + env(safe-area-inset-bottom)/2); background:var(--card); border-top:1px solid var(--line); align-items:flex-end}
+#chatInput{flex:1; resize:none; max-height:110px; line-height:1.4}
+#chatTop{display:flex; gap:8px; padding:8px 12px; align-items:center; border-bottom:1px solid var(--line); background:var(--card)}
+#chatTop .grow{flex:1; font-size:13px; color:var(--muted)}
+.tapTip{font-size:12px; color:var(--muted); text-align:center; padding:4px 12px}
+
+/* ---- Vocab ---- */
+.due-badge{background:var(--brand); color:#fff; border-radius:999px; font-size:12px; padding:2px 9px; font-weight:700}
+.wordrow{display:flex; align-items:baseline; gap:8px; padding:9px 2px; border-bottom:1px solid var(--line); font-size:15px}
+.wordrow b{min-width:90px}
+.wordrow .m{color:var(--muted); font-size:13px; flex:1}
+.wordrow .del{color:var(--danger); background:none; border:none; font-size:15px; cursor:pointer; padding:2px 6px}
+/* review card */
+#revCard{min-height:210px; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; gap:8px}
+#revWord{font-size:30px; font-weight:800}
+#revIpa{color:var(--muted)}
+#revBack{display:none; flex-direction:column; gap:6px; align-items:center}
+#revBack .mean{font-size:18px; font-weight:600}
+#revBack .ex{color:var(--muted); font-style:italic; font-size:14px; line-height:1.5}
+.grade{display:none; gap:8px; padding:0 14px 6px}
+.grade button{flex:1; border:none; border-radius:12px; padding:12px 0; font-weight:700; font-size:14px; cursor:pointer; color:#fff}
+.g0{background:#c0392b}.g1{background:#d97706}.g2{background:#1e8e5a}.g3{background:#2563eb}
+.grade small{display:block; font-weight:400; font-size:11px; opacity:.85}
+
+/* ---- Voice ---- */
+#btnMic.rec{background:var(--danger); color:#fff; animation:pulse 1.2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.55}}
+#btnAutoSpeak.off{opacity:.4}
+.msg.ai .spk{cursor:pointer; margin-left:6px; opacity:.55; font-size:14px}
+.msg.me .vtag{opacity:.8; font-size:12px; margin-right:4px}
+
+/* ---- Listen ---- */
+#lnScript{margin-top:12px}
+.ln-line{padding:7px 10px; border-radius:10px; margin-bottom:6px; line-height:1.5; font-size:15px}
+.ln-line b{color:var(--brand); margin-right:6px}
+.ln-line.now{background:var(--brand-soft)}
+.ln-hidden #lnScript .ln-line{filter:blur(5px); user-select:none}
+#lnCtrl{display:flex; gap:8px; flex-wrap:wrap; margin-top:12px}
+.quiz-q{margin:12px 0 6px; font-weight:600; font-size:15px}
+.quiz-opt{display:block; width:100%; text-align:left; margin:6px 0; padding:10px 12px; border:1px solid var(--line); border-radius:10px; background:var(--bg); color:var(--ink); font-size:14px; cursor:pointer}
+.quiz-opt.right{border-color:var(--ok); background:rgba(30,142,90,.12); font-weight:700}
+.quiz-opt.wrong{border-color:var(--danger); background:rgba(192,57,43,.10)}
+.rate-row{display:flex; align-items:center; gap:10px; margin-top:10px; font-size:13px; color:var(--muted)}
+.rate-row input[type=range]{flex:1}
+
+/* ---- misc ---- */
+#toast{
+  position:fixed; left:50%; bottom:86px; transform:translateX(-50%);
+  background:var(--ink); color:var(--bg); padding:9px 16px; border-radius:999px;
+  font-size:14px; opacity:0; transition:opacity .25s; pointer-events:none; max-width:88%; text-align:center; z-index:50;
+}
+#toast.show{opacity:.95}
+dialog{
+  border:none; border-radius:16px; padding:18px; background:var(--card); color:var(--ink);
+  width:min(92vw,420px); box-shadow:0 10px 40px rgba(0,0,0,.3);
+}
+dialog::backdrop{background:rgba(0,0,0,.45)}
+.row{display:flex; gap:8px; margin-top:14px}
+.row .btn{flex:1}
+.spin{display:inline-block; width:14px; height:14px; border:2px solid var(--muted); border-top-color:transparent; border-radius:50%; animation:sp .7s linear infinite; vertical-align:-2px}
+@keyframes sp{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+
+<header>
+  <span class="logo">TalkMate</span>
+  <span class="sub" id="headerSub"></span>
+</header>
+
+<main>
+  <!-- ============ CHAT ============ -->
+  <section class="view active" id="view-chat">
+    <div id="chatTop">
+      <span class="grow" id="chatStatus">Bạn trò chuyện thoải mái — mình không ngắt lời sửa lỗi đâu 😉</span>
+      <button class="btn small ghost" id="btnAutoSpeak" title="Tự đọc to câu trả lời">🔊</button>
+      <button class="btn small ghost" id="btnNewChat">Buổi mới</button>
+      <button class="btn small" id="btnEndChat">Kết thúc buổi</button>
+    </div>
+    <div id="chatScroll"></div>
+    <div class="typing" id="typing"><span class="spin"></span> TalkMate đang gõ…</div>
+    <div class="tapTip">💡 Chạm vào một từ trong tin nhắn của AI để lưu vào sổ từ</div>
+    <div id="chatBar">
+      <button class="btn ghost" id="btnMic" title="Nói bằng giọng">🎤</button>
+      <textarea id="chatInput" rows="1" placeholder="Nhắn bằng tiếng Anh…"></textarea>
+      <button class="btn" id="btnSend">Gửi</button>
+    </div>
+  </section>
+
+  <!-- ============ LISTEN ============ -->
+  <section class="view" id="view-listen">
+    <div class="pad">
+      <div class="card">
+        <h2>🎧 Tạo bài nghe mới</h2>
+        <label>Kiểu bài</label>
+        <select id="lnType">
+          <option value="conversation">Hội thoại 2 người</option>
+          <option value="story">Câu chuyện ngắn</option>
+          <option value="news">Bản tin ngắn</option>
+        </select>
+        <label>Chủ đề (bỏ trống = AI tự chọn theo sở thích của bạn)</label>
+        <input type="text" id="lnTopic" placeholder="vd: đi du lịch Đà Lạt, đặt món ở nhà hàng…">
+        <button class="btn" id="btnGenListen" style="width:100%;margin-top:12px">✨ Tạo bài nghe</button>
+        <div class="hint">Bài nghe sẽ ưu tiên dùng các từ bạn đang học trong sổ từ.</div>
+      </div>
+      <div class="card ln-hidden" id="lnPlayer" style="display:none">
+        <h2 id="lnTitle"></h2>
+        <div id="lnCtrl">
+          <button class="btn" id="btnPlay">▶️ Nghe</button>
+          <button class="btn ghost" id="btnStopTts">⏹ Dừng</button>
+          <button class="btn ghost" id="btnScriptToggle">👁 Hiện lời thoại</button>
+        </div>
+        <div class="rate-row">🐢 <input type="range" id="lnRate" min="0.6" max="1.2" step="0.1" value="0.9"> 🐇 <span id="lnRateVal">0.9x</span></div>
+        <div class="rate-row" style="margin-top:6px">Giọng đọc: <select id="lnVoice" style="flex:1;padding:6px"></select></div>
+        <div id="lnScript"></div>
+        <div class="hint" id="lnTip">Mẹo: nghe 2–3 lần trước rồi mới hiện lời thoại để đối chiếu.</div>
+      </div>
+      <div class="card" id="lnQuizCard" style="display:none">
+        <h2>❓ Kiểm tra nhanh</h2>
+        <div id="lnQuiz"></div>
+        <div id="lnScore" class="hint" style="font-size:15px"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ VOCAB ============ -->
+  <section class="view" id="view-vocab">
+    <div class="pad">
+      <div class="card" id="revZone">
+        <h2 style="display:flex;align-items:center;gap:8px">Ôn từ hôm nay <span class="due-badge" id="dueCount">0</span></h2>
+        <div id="revCard">
+          <div id="revEmpty">🎉 Không còn từ nào đến hạn ôn.<br><span class="hint">Chạm vào từ mới trong lúc trò chuyện để thêm từ.</span></div>
+          <div id="revFront" style="display:none">
+            <div id="revWord"></div>
+            <div id="revIpa"></div>
+            <button class="btn ghost" id="btnReveal" style="margin-top:12px">Xem nghĩa</button>
+          </div>
+          <div id="revBack">
+            <div class="mean" id="revMean"></div>
+            <div class="ex" id="revEx"></div>
+          </div>
+        </div>
+        <div class="grade" id="gradeBar">
+          <button class="g0" data-g="0">Quên<small>&lt; 10 phút</small></button>
+          <button class="g1" data-g="1">Khó<small id="ivl1"></small></button>
+          <button class="g2" data-g="2">Nhớ<small id="ivl2"></small></button>
+          <button class="g3" data-g="3">Dễ<small id="ivl3"></small></button>
+        </div>
+      </div>
+      <div class="card">
+        <h2>Sổ từ (<span id="wordTotal">0</span>)</h2>
+        <div id="wordList"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ SETTINGS ============ -->
+  <section class="view" id="view-settings">
+    <div class="pad">
+      <div class="card">
+        <h2>Kết nối Gemini</h2>
+        <label>API key</label>
+        <input type="password" id="setKey" placeholder="Dán API key vào đây" autocomplete="off">
+        <label>Model</label>
+        <select id="setModel">
+          <option value="gemini-2.5-flash">gemini-2.5-flash (khuyên dùng)</option>
+          <option value="gemini-2.5-flash-lite">gemini-2.5-flash-lite (nhẹ, nhanh)</option>
+          <option value="gemini-2.5-pro">gemini-2.5-pro (thông minh hơn, chậm hơn)</option>
+        </select>
+        <div class="hint">Lấy key miễn phí tại <a href="https://aistudio.google.com" target="_blank" rel="noopener">aistudio.google.com</a> → API keys. Key chỉ lưu trong máy bạn.</div>
+      </div>
+      <div class="card">
+        <h2>Hồ sơ học</h2>
+        <label>Trình độ hiện tại</label>
+        <select id="setLevel">
+          <option value="beginner">Mới bắt đầu (A1–A2)</option>
+          <option value="intermediate" selected>Trung cấp (B1–B2)</option>
+          <option value="advanced">Khá – nâng cao (C1)</option>
+        </select>
+        <label>Chủ đề bạn thích trò chuyện</label>
+        <input type="text" id="setTopics" placeholder="vd: du lịch, công nghệ, phim ảnh, ẩm thực…">
+      </div>
+      <div class="card">
+        <h2>Dữ liệu</h2>
+        <div class="hint" style="margin:0 0 10px">Từ vựng + tiến độ ôn + nhật ký buổi học. Dùng để chuyển giữa hai điện thoại (không kèm API key).</div>
+        <div class="row" style="margin-top:0">
+          <button class="btn ghost" id="btnExport">⬇️ Xuất file</button>
+          <button class="btn ghost" id="btnImport">⬆️ Nhập file</button>
+        </div>
+        <input type="file" id="importFile" accept="application/json" hidden>
+      </div>
+      <div class="card">
+        <h2>Nhật ký buổi học</h2>
+        <div id="sessionLog" class="hint" style="margin:0">Chưa có buổi nào.</div>
+      </div>
+      <button class="btn" id="btnSaveSet" style="width:100%">Lưu cài đặt</button>
+      <div class="hint" style="text-align:center;margin-top:10px">TalkMate · Phase 1 · dữ liệu nằm trong máy bạn</div>
+    </div>
+  </section>
+</main>
+
+<nav>
+  <button data-v="chat" class="on"><span class="ic">💬</span>Trò chuyện</button>
+  <button data-v="listen"><span class="ic">🎧</span>Nghe</button>
+  <button data-v="vocab"><span class="ic">📚</span>Từ vựng</button>
+  <button data-v="settings"><span class="ic">⚙️</span>Cài đặt</button>
+</nav>
+
+<div id="toast"></div>
+
+<!-- dialog lưu từ -->
+<dialog id="wordDlg">
+  <h2 id="dlgWord" style="font-size:22px"></h2>
+  <div id="dlgBody" class="hint" style="font-size:14px"><span class="spin"></span> Đang tra nghĩa…</div>
+  <div class="row">
+    <button class="btn ghost" id="dlgCancel">Đóng</button>
+    <button class="btn" id="dlgSave" disabled>💾 Lưu vào sổ từ</button>
+  </div>
+</dialog>
+
+<script>
+"use strict";
+/* ================= helpers & storage ================= */
+const $ = s => document.querySelector(s);
+const $$ = s => [...document.querySelectorAll(s)];
+const DAY = 864e5;
+const store = {
+  get(k, d){ try{ const v = localStorage.getItem('tm_'+k); return v===null? d : JSON.parse(v);}catch(e){return d;} },
+  set(k, v){ try{ localStorage.setItem('tm_'+k, JSON.stringify(v)); }catch(e){ toast('Không lưu được dữ liệu: '+e.message); } }
+};
+let words = store.get('words', []);        // [{id,word,ipa,mean,ex,ease,ivl,due,reps,added}]
+let sessions = store.get('sessions', []);  // [{date,msgs,summary}]
+let chatLog = store.get('chatLog', []);    // [{role:'user'|'model', text}]
+function esc(s){ return s.replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function toast(msg, ms=2200){ const t=$('#toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(t._h); t._h=setTimeout(()=>t.classList.remove('show'), ms); }
+function today(){ return new Date().toISOString().slice(0,10); }
+
+/* ================= Gemini ================= */
+async function gemini(contents, system, wantJson=false){
+  const key = store.get('apiKey','');
+  if(!key){ throw new Error('NO_KEY'); }
+  const model = store.get('model','gemini-2.5-flash');
+  const body = {
+    contents,
+    systemInstruction: { parts: [{ text: system }] },
+    generationConfig: Object.assign({ temperature: 0.8, maxOutputTokens: 1200 },
+      wantJson ? { responseMimeType: 'application/json' } : {})
+  };
+  const r = await fetch(
+    'https://generativelanguage.googleapis.com/v1beta/models/'+model+':generateContent?key='+encodeURIComponent(key),
+    { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
+  if(!r.ok){
+    let msg = 'HTTP '+r.status;
+    try{ msg = (await r.json()).error.message || msg; }catch(e){}
+    throw new Error(msg);
+  }
+  const j = await r.json();
+  const parts = j?.candidates?.[0]?.content?.parts;
+  if(!parts) throw new Error('Phản hồi trống (có thể bị chặn an toàn). Thử lại nhé.');
+  return parts.map(p=>p.text||'').join('');
+}
+function profileNote(){
+  const lv = { beginner:'A1–A2 (beginner)', intermediate:'B1–B2 (intermediate)', advanced:'C1 (advanced)' }[store.get('level','intermediate')];
+  const tp = store.get('topics','');
+  const learning = words.filter(w=>w.reps<3).slice(-12).map(w=>w.word).join(', ');
+  return 'Learner profile: Vietnamese native speaker, English level '+lv+'.'
+    + (tp? ' Favorite topics: '+tp+'.':'')
+    + (learning? ' Words they are currently learning (weave some in naturally when it fits): '+learning+'.':'');
+}
+const CHAT_SYSTEM = () => `You are TalkMate, a warm, patient English conversation buddy inside a personal learning app.
+${profileNote()}
+Rules:
+- Chat naturally in English, like a friendly peer. Keep replies SHORT: 1-3 sentences, then usually one easy follow-up question to keep the conversation going.
+- Match the learner's level: simple clear vocabulary, but occasionally introduce ONE slightly-above-level word in a guessable context.
+- NEVER interrupt to correct grammar or word choice mid-conversation. No teaching tone. If you truly cannot understand, ask casually ("Sorry, do you mean...?").
+- Be encouraging and curious about what they say. Never mock mistakes.
+- Do not use markdown formatting. Plain text only. Emojis are fine, sparingly.`;
+const SUMMARY_SYSTEM = () => `You are a kind Vietnamese-speaking English coach reviewing a practice chat. ${profileNote()}
+Write the review in VIETNAMESE, friendly and encouraging, using this plain-text structure (no markdown):
+1) Một câu khen cụ thể về điều học viên làm tốt.
+2) "Điểm nói tự nhiên hơn:" tối đa 3 chỗ, mỗi chỗ trên một dòng dạng: câu gốc → cách nói tự nhiên hơn (giải thích ngắn bằng tiếng Việt). Chỉ chọn lỗi đáng giá nhất, bỏ qua lỗi vặt.
+3) "Từ hay hôm nay:" 3-5 từ/cụm hữu ích rút từ chính cuộc trò chuyện (hoặc lẽ ra dùng được), dạng: word /IPA/ — nghĩa tiếng Việt.
+Keep it under 220 words. Warm tone, no scolding.`;
+const LOOKUP_SYSTEM = `You are a dictionary API for Vietnamese learners of English. Given a word and the sentence it appeared in, reply ONLY with JSON:
+{"word":"base form","ipa":"/.../","mean":"nghĩa tiếng Việt ngắn gọn (đúng nghĩa trong ngữ cảnh)","ex":"one short natural example sentence in English"}`;
+
+/* ================= Chat UI ================= */
+const chatScroll = $('#chatScroll');
+function addBubble(role, text){
+  const d = document.createElement('div');
+  d.className = 'msg ' + role;
+  if(role === 'ai'){ d.innerHTML = wrapWords(text) + ' <span class="spk" title="Nghe lại">🔊</span>'; }
+  else { d.textContent = text; }
+  chatScroll.appendChild(d);
+  chatScroll.scrollTop = chatScroll.scrollHeight;
+  return d;
+}
+function wrapWords(text){
+  // wrap English words in tappable spans
+  return esc(text).replace(/[A-Za-z][A-Za-z''-]{1,}/g, m => `<span class="w">${m}</span>`);
+}
+function renderChat(){
+  chatScroll.innerHTML = '';
+  if(chatLog.length === 0){
+    addBubble('sys','Chào bạn 👋 Đây là chỗ luyện nói thoải mái — sai cũng không sao, không ai chấm điểm cả.\nGõ tiếng Anh bất kỳ điều gì: hôm nay thế nào, bạn thích gì, kể chuyện gì cũng được!');
+  }
+  chatLog.forEach(m => addBubble(m.role === 'user' ? 'me' : 'ai', m.text));
+}
+async function sendChat(){
+  const inp = $('#chatInput');
+  const text = inp.value.trim();
+  if(!text) return;
+  if(!store.get('apiKey','')){ toast('Chưa có API key — vào ⚙️ Cài đặt để dán key nhé'); switchView('settings'); return; }
+  inp.value=''; inp.style.height='auto';
+  chatLog.push({role:'user', text});
+  addBubble('me', text);
+  $('#typing').style.display='block'; $('#btnSend').disabled=true;
+  try{
+    const contents = chatLog.map(m=>({role:m.role, parts:[{text:m.text}]}));
+    const reply = await gemini(contents, CHAT_SYSTEM());
+    chatLog.push({role:'model', text: reply.trim()});
+    store.set('chatLog', chatLog);
+    addBubble('ai', reply.trim());
+  }catch(e){
+    chatLog.pop();
+    addBubble('sys','⚠️ Lỗi: ' + (e.message==='NO_KEY'?'chưa có API key.':e.message));
+  }finally{
+    $('#typing').style.display='none'; $('#btnSend').disabled=false;
+  }
+}
+async function endSession(){
+  const userMsgs = chatLog.filter(m=>m.role==='user').length;
+  if(userMsgs === 0){ toast('Bạn chưa nhắn gì trong buổi này mà 😄'); return; }
+  $('#btnEndChat').disabled = true; $('#typing').style.display='block';
+  try{
+    const convo = chatLog.map(m=>(m.role==='user'?'Learner: ':'TalkMate: ')+m.text).join('\n');
+    const summary = await gemini([{role:'user', parts:[{text:'Here is the practice conversation:\n\n'+convo}]}], SUMMARY_SYSTEM());
+    addBubble('sys','📋 Tổng kết buổi học\n\n'+summary.trim());
+    sessions.push({date: new Date().toISOString(), msgs: userMsgs, summary: summary.trim()});
+    store.set('sessions', sessions);
+    renderSessions();
+    toast('Đã lưu tổng kết. Bấm "Buổi mới" để bắt đầu lại.');
+  }catch(e){
+    addBubble('sys','⚠️ Không tổng kết được: '+e.message);
+  }finally{
+    $('#btnEndChat').disabled=false; $('#typing').style.display='none';
+  }
+}
+function newChat(){
+  if(chatLog.length && !confirm('Bắt đầu buổi mới? Nội dung chat hiện tại sẽ được xoá (tổng kết đã lưu thì vẫn còn).')) return;
+  chatLog = []; store.set('chatLog', chatLog); renderChat();
+}
+
+/* ================= Voice chat (Phase 3) ================= */
+function speakText(text){
+  if(!('speechSynthesis' in window)) return;
+  speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(text.replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu,''));
+  u.lang = 'en-US'; u.rate = 0.95;
+  const v = speechSynthesis.getVoices().find(x=>x.voiceURI===store.get('voice',''));
+  if(v) u.voice = v;
+  speechSynthesis.speak(u);
+}
+chatScroll.addEventListener('click', e=>{
+  const s = e.target.closest('.spk'); if(!s) return;
+  const msg = s.closest('.msg').textContent.replace(/🔊\s*$/,'');
+  speakText(msg);
+});
+let autoSpeak = store.get('autoSpeak', true);
+function renderAutoSpeak(){ $('#btnAutoSpeak').classList.toggle('off', !autoSpeak); }
+$('#btnAutoSpeak').onclick = ()=>{
+  autoSpeak = !autoSpeak; store.set('autoSpeak', autoSpeak); renderAutoSpeak();
+  toast(autoSpeak ? '🔊 Sẽ tự đọc to câu trả lời cho tin nhắn giọng nói' : '🔇 Đã tắt tự đọc');
+};
+renderAutoSpeak();
+
+let rec = null, recChunks = [];
+$('#btnMic').onclick = async ()=>{
+  if(rec && rec.state === 'recording'){ rec.stop(); return; }
+  if(!store.get('apiKey','')){ toast('Chưa có API key — vào ⚙️ Cài đặt nhé'); switchView('settings'); return; }
+  if(!navigator.mediaDevices || !window.MediaRecorder){
+    toast('Micro cần chạy qua https (mở bản trên GitHub Pages) hoặc trình duyệt chưa hỗ trợ', 4000); return;
+  }
+  try{
+    const stream = await navigator.mediaDevices.getUserMedia({audio:true});
+    const mime = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus'
+               : MediaRecorder.isTypeSupported('audio/mp4') ? 'audio/mp4' : '';
+    rec = new MediaRecorder(stream, mime ? {mimeType: mime} : undefined);
+    recChunks = [];
+    rec.ondataavailable = e=>{ if(e.data.size) recChunks.push(e.data); };
+    rec.onstop = ()=>{
+      stream.getTracks().forEach(t=>t.stop());
+      $('#btnMic').classList.remove('rec'); $('#btnMic').textContent='🎤';
+      $('#chatStatus').textContent = 'Bạn trò chuyện thoải mái — mình không ngắt lời sửa lỗi đâu 😉';
+      const blob = new Blob(recChunks, {type: (rec.mimeType || mime || 'audio/webm').split(';')[0]});
+      if(blob.size < 1500){ toast('Đoạn ghi quá ngắn, thử lại nhé'); return; }
+      sendVoice(blob);
+    };
+    rec.start();
+    $('#btnMic').classList.add('rec'); $('#btnMic').textContent='⏹';
+    $('#chatStatus').textContent = '🎙 Đang nghe… nói xong bấm ⏹';
+  }catch(e){ toast('Không mở được micro: '+e.message, 3500); }
+};
+function blobToB64(blob){
+  return new Promise((res, rej)=>{
+    const r = new FileReader();
+    r.onload = ()=> res(r.result.split(',')[1]);
+    r.onerror = rej;
+    r.readAsDataURL(blob);
+  });
+}
+async function sendVoice(blob){
+  $('#typing').style.display='block'; $('#btnSend').disabled=true; $('#btnMic').disabled=true;
+  try{
+    const b64 = await blobToB64(blob);
+    const contents = chatLog.map(m=>({role:m.role, parts:[{text:m.text}]}));
+    contents.push({role:'user', parts:[
+      {inlineData:{mimeType: blob.type || 'audio/webm', data: b64}},
+      {text:'(This turn is my voice recording.)'}
+    ]});
+    const sys = CHAT_SYSTEM() + `
+The last user turn is an AUDIO recording of the learner speaking English.
+First line of your reply must be exactly: YOU_SAID: <what you heard them say, cleaned up lightly>
+Then, from the next line, continue the conversation normally following all the rules above. If the audio is unclear, put your best guess in YOU_SAID and casually ask to confirm.`;
+    const out = await gemini(contents, sys);
+    let transcript = '(voice message)', reply = out.trim();
+    const m = out.match(/^\s*YOU_SAID:\s*(.+)$/m);
+    if(m){ transcript = m[1].trim(); reply = out.slice(out.indexOf(m[0]) + m[0].length).trim(); }
+    if(!reply) reply = "Sorry, I couldn't hear that well — could you say it again? 😊";
+    chatLog.push({role:'user', text: transcript});
+    chatLog.push({role:'model', text: reply});
+    store.set('chatLog', chatLog);
+    addBubble('me', '🎤 ' + transcript);
+    addBubble('ai', reply);
+    if(autoSpeak) speakText(reply);
+  }catch(e){
+    addBubble('sys','⚠️ Không gửi được đoạn ghi âm: ' + e.message);
+  }finally{
+    $('#typing').style.display='none'; $('#btnSend').disabled=false; $('#btnMic').disabled=false;
+  }
+}
+
+/* ================= tap word -> save ================= */
+let dlgData = null;
+chatScroll.addEventListener('click', async e=>{
+  const el = e.target.closest('.w');
+  if(!el) return;
+  const raw = el.textContent.replace(/^['-]+|['-]+$/g,'');
+  if(raw.length < 2) return;
+  const sentence = el.closest('.msg').textContent;
+  const dlg = $('#wordDlg');
+  $('#dlgWord').textContent = raw;
+  $('#dlgBody').innerHTML = '<span class="spin"></span> Đang tra nghĩa…';
+  $('#dlgSave').disabled = true; dlgData = null;
+  dlg.showModal();
+  try{
+    const out = await gemini(
+      [{role:'user', parts:[{text:`Word: "${raw}"\nSentence: "${sentence}"`}]}],
+      LOOKUP_SYSTEM, true);
+    const j = JSON.parse(out);
+    dlgData = { word: (j.word||raw).toLowerCase(), ipa: j.ipa||'', mean: j.mean||'', ex: j.ex||'' };
+    $('#dlgWord').textContent = dlgData.word;
+    $('#dlgBody').innerHTML = `<b>${esc(dlgData.ipa)}</b><br>${esc(dlgData.mean)}<br><i>${esc(dlgData.ex)}</i>`;
+    if(words.some(w=>w.word===dlgData.word)){
+      $('#dlgBody').innerHTML += '<br><br>✅ Từ này đã có trong sổ từ.';
+    } else {
+      $('#dlgSave').disabled = false;
+    }
+  }catch(err){
+    $('#dlgBody').textContent = '⚠️ ' + (err.message==='NO_KEY'?'Chưa có API key (vào Cài đặt).':err.message);
+  }
+});
+$('#dlgCancel').onclick = ()=> $('#wordDlg').close();
+$('#dlgSave').onclick = ()=>{
+  if(!dlgData) return;
+  words.push(Object.assign({id: Date.now(), ease:2.5, ivl:0, due: Date.now(), reps:0, added: today()}, dlgData));
+  store.set('words', words);
+  $('#wordDlg').close();
+  toast('💾 Đã lưu "'+dlgData.word+'" vào sổ từ');
+  renderVocab();
+};
+
+/* ================= SRS (SM-2 rút gọn) ================= */
+function dueWords(){ return words.filter(w => w.due <= Date.now()).sort((a,b)=>a.due-b.due); }
+function nextIvl(w, g){
+  let {ease, ivl} = w;
+  if(g===0) return {ease: Math.max(1.3, ease-0.2), ivl: 0};
+  if(g===1) return {ease: Math.max(1.3, ease-0.15), ivl: Math.max(1, Math.round(ivl*1.2)||1)};
+  if(g===2) return {ease, ivl: ivl===0 ? 1 : Math.round(ivl*ease)};
+  return {ease: ease+0.15, ivl: ivl===0 ? 3 : Math.round(ivl*ease*1.3)};
+}
+function ivlLabel(d){ return d===0 ? '<10 phút' : d===1 ? '1 ngày' : d+' ngày'; }
+let curCard = null;
+function renderVocab(){
+  const due = dueWords();
+  $('#dueCount').textContent = due.length;
+  $('#wordTotal').textContent = words.length;
+  // review card
+  curCard = due[0] || null;
+  $('#revEmpty').style.display = curCard ? 'none' : 'block';
+  $('#revFront').style.display = curCard ? 'block' : 'none';
+  $('#revBack').style.display = 'none';
+  $('#gradeBar').style.display = 'none';
+  if(curCard){
+    $('#revWord').textContent = curCard.word;
+    $('#revIpa').textContent = curCard.ipa;
+  }
+  // list
+  const list = $('#wordList');
+  list.innerHTML = words.length ? '' : '<div class="hint">Sổ từ trống. Chạm vào từ trong tin nhắn AI để thêm.</div>';
+  [...words].reverse().forEach(w=>{
+    const row = document.createElement('div');
+    row.className='wordrow';
+    row.innerHTML = `<b>${esc(w.word)}</b><span class="m">${esc(w.mean)}</span><button class="del" data-id="${w.id}">✕</button>`;
+    list.appendChild(row);
+  });
+}
+$('#btnReveal').onclick = ()=>{
+  if(!curCard) return;
+  $('#revFront').style.display='none';
+  $('#revBack').style.display='flex';
+  $('#revMean').textContent = curCard.mean;
+  $('#revEx').textContent = curCard.ex;
+  $('#gradeBar').style.display='flex';
+  [1,2,3].forEach(g=>{ $('#ivl'+g).textContent = ivlLabel(nextIvl(curCard,g).ivl); });
+};
+$('#gradeBar').addEventListener('click', e=>{
+  const b = e.target.closest('button'); if(!b || !curCard) return;
+  const g = +b.dataset.g;
+  const {ease, ivl} = nextIvl(curCard, g);
+  curCard.ease = ease; curCard.ivl = ivl; curCard.reps++;
+  curCard.due = ivl===0 ? Date.now()+10*60*1000 : Date.now()+ivl*DAY;
+  store.set('words', words);
+  renderVocab();
+});
+$('#wordList').addEventListener('click', e=>{
+  const b = e.target.closest('.del'); if(!b) return;
+  const w = words.find(x=>x.id==b.dataset.id);
+  if(w && confirm('Xoá "'+w.word+'" khỏi sổ từ?')){
+    words = words.filter(x=>x.id!=b.dataset.id);
+    store.set('words', words); renderVocab();
+  }
+});
+
+/* ================= Listening (Phase 2) ================= */
+const LISTEN_SYSTEM = () => `You create short listening exercises for a Vietnamese learner of English. ${profileNote()}
+Reply ONLY with JSON:
+{"title":"short English title","lines":[{"s":"speaker name or 'Narrator'","t":"one sentence or short utterance"}],"questions":[{"q":"comprehension question in English","opts":["A","B","C","D"],"a":0}]}
+Rules: 8-14 lines total, natural spoken English matched to the learner's level; if learner words were listed in the profile, weave 2-4 of them in naturally. Exactly 3 questions, each with 4 options, "a" is the index of the correct option. No markdown.`;
+let lnData = null, lnUtterQueue = [], lnPlaying = false;
+
+$('#btnGenListen').onclick = async ()=>{
+  if(!store.get('apiKey','')){ toast('Chưa có API key — vào ⚙️ Cài đặt nhé'); switchView('settings'); return; }
+  const btn = $('#btnGenListen');
+  btn.disabled = true; btn.innerHTML = '<span class="spin"></span> Đang tạo…';
+  try{
+    const type = {conversation:'a dialogue between two people', story:'a short story told by a narrator', news:'a short news report read by a presenter'}[$('#lnType').value];
+    const topic = $('#lnTopic').value.trim();
+    const out = await gemini(
+      [{role:'user', parts:[{text:`Create ${type}${topic? ' about: '+topic : ' about a topic the learner would enjoy'}.`}]}],
+      LISTEN_SYSTEM(), true);
+    lnData = JSON.parse(out);
+    if(!lnData.lines || !lnData.lines.length) throw new Error('Bài nghe trống, thử lại nhé');
+    renderListen();
+    toast('🎧 Xong! Bấm ▶️ Nghe');
+  }catch(e){ toast('⚠️ '+(e.message==='NO_KEY'?'Chưa có API key.':e.message), 3500); }
+  finally{ btn.disabled=false; btn.textContent='✨ Tạo bài nghe'; }
+};
+function renderListen(){
+  stopTts();
+  $('#lnPlayer').style.display='block';
+  $('#lnPlayer').classList.add('ln-hidden');
+  $('#btnScriptToggle').textContent='👁 Hiện lời thoại';
+  $('#lnTitle').textContent = lnData.title || 'Listening';
+  $('#lnScript').innerHTML = lnData.lines.map((l,i)=>
+    `<div class="ln-line" data-i="${i}"><b>${esc(l.s)}:</b>${esc(l.t)}</div>`).join('');
+  // quiz
+  const qc = $('#lnQuizCard'); qc.style.display='block';
+  $('#lnScore').textContent=''; qc.dataset.right='0'; qc.dataset.done='0';
+  $('#lnQuiz').innerHTML = (lnData.questions||[]).map((q,qi)=>
+    `<div class="quiz-q">${qi+1}. ${esc(q.q)}</div>` +
+    q.opts.map((o,oi)=>`<button class="quiz-opt" data-q="${qi}" data-o="${oi}">${esc(o)}</button>`).join('')
+  ).join('');
+}
+function pickVoice(){
+  const uri = $('#lnVoice').value;
+  return speechSynthesis.getVoices().find(v=>v.voiceURI===uri) || null;
+}
+function loadVoices(){
+  const sel = $('#lnVoice');
+  const vs = speechSynthesis.getVoices().filter(v=>v.lang.startsWith('en'));
+  if(!vs.length) return;
+  const cur = store.get('voice','');
+  sel.innerHTML = vs.map(v=>`<option value="${esc(v.voiceURI)}" ${v.voiceURI===cur?'selected':''}>${esc(v.name)} (${v.lang})</option>`).join('');
+}
+if('speechSynthesis' in window){
+  loadVoices();
+  speechSynthesis.onvoiceschanged = loadVoices;
+}
+$('#lnVoice').onchange = e=> store.set('voice', e.target.value);
+$('#lnRate').oninput = e=> $('#lnRateVal').textContent = e.target.value+'x';
+function speakFrom(idx){
+  if(!('speechSynthesis' in window)){ toast('Trình duyệt này không hỗ trợ đọc TTS'); return; }
+  stopTts(); lnPlaying = true;
+  const rate = +$('#lnRate').value, voice = pickVoice();
+  const speakNext = i=>{
+    if(!lnPlaying || i >= lnData.lines.length){ stopTts(); return; }
+    $$('#lnScript .ln-line').forEach(el=>el.classList.toggle('now', +el.dataset.i===i));
+    const u = new SpeechSynthesisUtterance(lnData.lines[i].t);
+    u.rate = rate; u.lang = 'en-US';
+    if(voice) u.voice = voice;
+    u.onend = ()=> setTimeout(()=>speakNext(i+1), 350);
+    u.onerror = ()=> stopTts();
+    speechSynthesis.speak(u);
+  };
+  speakNext(idx);
+}
+function stopTts(){
+  lnPlaying = false;
+  if('speechSynthesis' in window) speechSynthesis.cancel();
+  $$('#lnScript .ln-line').forEach(el=>el.classList.remove('now'));
+}
+$('#btnPlay').onclick = ()=> lnData && speakFrom(0);
+$('#btnStopTts').onclick = stopTts;
+$('#btnScriptToggle').onclick = ()=>{
+  const p = $('#lnPlayer');
+  p.classList.toggle('ln-hidden');
+  $('#btnScriptToggle').textContent = p.classList.contains('ln-hidden') ? '👁 Hiện lời thoại' : '🙈 Ẩn lời thoại';
+};
+$('#lnScript').addEventListener('click', e=>{
+  const line = e.target.closest('.ln-line');
+  if(line && !$('#lnPlayer').classList.contains('ln-hidden')) speakFrom(+line.dataset.i);
+});
+$('#lnQuiz').addEventListener('click', e=>{
+  const b = e.target.closest('.quiz-opt'); if(!b || b.dataset.locked) return;
+  const qi = +b.dataset.q, oi = +b.dataset.o, ans = lnData.questions[qi].a;
+  const qc = $('#lnQuizCard');
+  $$(`#lnQuiz .quiz-opt[data-q="${qi}"]`).forEach(x=>{
+    x.dataset.locked='1';
+    if(+x.dataset.o===ans) x.classList.add('right');
+  });
+  if(oi!==ans) b.classList.add('wrong'); else qc.dataset.right = +qc.dataset.right+1;
+  qc.dataset.done = +qc.dataset.done+1;
+  if(+qc.dataset.done === lnData.questions.length){
+    const r = +qc.dataset.right, n = lnData.questions.length;
+    $('#lnScore').textContent = (r===n?'🏆 ':'')+`Kết quả: ${r}/${n} câu đúng${r===n?' — tuyệt vời!':r>=n-1?' — tốt lắm!':' — nghe lại một lần nữa nhé!'}`;
+  }
+});
+
+/* ================= settings / export-import ================= */
+function loadSettings(){
+  $('#setKey').value = store.get('apiKey','');
+  $('#setModel').value = store.get('model','gemini-2.5-flash');
+  $('#setLevel').value = store.get('level','intermediate');
+  $('#setTopics').value = store.get('topics','');
+}
+$('#btnSaveSet').onclick = ()=>{
+  store.set('apiKey', $('#setKey').value.trim());
+  store.set('model', $('#setModel').value);
+  store.set('level', $('#setLevel').value);
+  store.set('topics', $('#setTopics').value.trim());
+  toast('✅ Đã lưu cài đặt');
+};
+$('#btnExport').onclick = ()=>{
+  const data = { app:'talkmate', v:1, exported: new Date().toISOString(),
+    words, sessions, level: store.get('level','intermediate'), topics: store.get('topics','') };
+  const blob = new Blob([JSON.stringify(data,null,1)], {type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'talkmate-'+today()+'.json';
+  a.click(); URL.revokeObjectURL(a.href);
+  toast('⬇️ Đã xuất file dữ liệu');
+};
+$('#btnImport').onclick = ()=> $('#importFile').click();
+$('#importFile').onchange = async e=>{
+  const f = e.target.files[0]; if(!f) return;
+  try{
+    const data = JSON.parse(await f.text());
+    if(data.app!=='talkmate') throw new Error('File không đúng định dạng TalkMate');
+    let added = 0;
+    (data.words||[]).forEach(w=>{
+      if(!words.some(x=>x.word===w.word)){ words.push(w); added++; }
+    });
+    (data.sessions||[]).forEach(s=>{
+      if(!sessions.some(x=>x.date===s.date)) sessions.push(s);
+    });
+    sessions.sort((a,b)=>a.date<b.date?-1:1);
+    store.set('words',words); store.set('sessions',sessions);
+    if(data.level) store.set('level', data.level);
+    if(data.topics) store.set('topics', data.topics);
+    loadSettings(); renderVocab(); renderSessions();
+    toast('⬆️ Đã nhập: thêm '+added+' từ mới');
+  }catch(err){ toast('⚠️ '+err.message); }
+  e.target.value='';
+};
+function renderSessions(){
+  const el = $('#sessionLog');
+  if(!sessions.length){ el.textContent='Chưa có buổi nào.'; return; }
+  el.innerHTML = sessions.slice(-7).reverse().map(s=>
+    `<div style="padding:4px 0">🗓 ${s.date.slice(0,10)} — ${s.msgs} tin nhắn</div>`).join('');
+}
+
+/* ================= nav & init ================= */
+function switchView(v){
+  $$('.view').forEach(x=>x.classList.remove('active'));
+  $('#view-'+v).classList.add('active');
+  $$('nav button').forEach(b=>b.classList.toggle('on', b.dataset.v===v));
+  if(v==='vocab') renderVocab();
+  if(v!=='listen' && typeof stopTts==='function') stopTts();
+}
+$$('nav button').forEach(b=> b.onclick = ()=> switchView(b.dataset.v));
+$('#btnSend').onclick = sendChat;
+$('#chatInput').addEventListener('keydown', e=>{
+  if(e.key==='Enter' && !e.shiftKey && !('ontouchstart' in window)){ e.preventDefault(); sendChat(); }
+});
+$('#chatInput').addEventListener('input', function(){ this.style.height='auto'; this.style.height=Math.min(this.scrollHeight,110)+'px'; });
+$('#btnEndChat').onclick = endSession;
+$('#btnNewChat').onclick = newChat;
+
+loadSettings(); renderChat(); renderVocab(); renderSessions();
+const dueN = dueWords().length;
+if(dueN>0) $('#headerSub').textContent = '📚 '+dueN+' từ chờ ôn';
+
+/* PWA: chỉ đăng ký service worker khi chạy qua http(s) */
+if('serviceWorker' in navigator && location.protocol.startsWith('http')){
+  navigator.serviceWorker.register('sw.js').catch(()=>{});
+}
+</script>
+</body>
+</html>
