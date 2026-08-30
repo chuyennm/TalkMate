@@ -1,34 +1,36 @@
 # TalkMate 💬
 
-App học ngoại ngữ cá nhân, chạy trên điện thoại (PWA): trò chuyện với AI **không sợ sai**, học từ vựng bằng thẻ ôn kiểu Anki, luyện nghe theo đúng trình độ, nói bằng giọng qua micro — và lộ trình tuần do AI soạn từ dữ liệu học thật của bạn.
+**English** · [Tiếng Việt](README.vi.md)
 
-**Ngôn ngữ hỗ trợ:** 🇬🇧 Anh · 🇨🇳 Trung · 🇯🇵 Nhật · 🇰🇷 Hàn · 🇫🇷 Pháp · 🇪🇸 Tây Ban Nha — chọn trong ⚙️ Cài đặt, mỗi ngôn ngữ có sổ từ và giọng đọc riêng. Tiếng Trung có thêm **luyện viết chữ Hán theo thứ tự nét** (tô bằng ngón tay, chấm từng nét).
+A personal language-learning app that runs on your phone as a PWA: chat with an AI buddy **without fear of making mistakes**, build vocabulary with Anki-style spaced repetition, practice listening at exactly your level, and speak through your microphone — with a weekly study plan the AI writes from your real learning data.
 
-Không server, không tài khoản — chạy bằng Gemini API key miễn phí của riêng bạn, dữ liệu nằm trong máy bạn.
+**Supported languages:** 🇬🇧 English · 🇨🇳 Chinese · 🇯🇵 Japanese · 🇰🇷 Korean · 🇫🇷 French · 🇪🇸 Spanish — pick one in ⚙️ Settings; each language keeps its own word book and TTS voice. Chinese mode adds **stroke-order handwriting practice** for Hanzi (trace each stroke with your finger, graded stroke by stroke).
 
-## Tính năng chính
+No server, no accounts — it runs on your own free Gemini API key, and all learning data stays on your device. The app's interface and explanations are in Vietnamese (built for Vietnamese native speakers).
 
-- **💬 Trò chuyện**: AI là bạn đồng hành kiên nhẫn, không ngắt lời sửa lỗi giữa chừng — bấm "Kết thúc buổi" mới nhận tổng kết nhẹ nhàng bằng tiếng Việt. Chạm vào từ bất kỳ trong tin nhắn AI để tra nghĩa và lưu vào sổ từ. Bí quá bấm 💡 để xem 3 gợi ý trả lời kèm nghĩa Việt. Nút 🎤 để nói bằng giọng — AI nghe audio trực tiếp, trả lời và đọc to.
-- **🎧 Nghe**: AI tạo bài nghe (hội thoại / câu chuyện / bản tin) theo trình độ và chủ đề bạn thích, tự chèn các từ bạn đang học. Lời thoại làm mờ để luyện nghe "chay", chỉnh tốc độ 0.6x–1.2x, quiz 3 câu cuối bài.
-- **📚 Từ vựng**: ôn thẻ theo thuật toán SM-2 (Quên / Khó / Nhớ / Dễ), tự phát âm khi lật thẻ, thêm từ thủ công. Tiếng Trung: khung ✍️ luyện viết — xem hoạt hình thứ tự nét rồi tô theo.
-- **🧭 Lộ trình**: chuỗi ngày học 🔥, checklist 3 việc mỗi ngày, và nút soạn kế hoạch 7 ngày — AI đọc đúng dữ liệu học của bạn (từ hay quên, các buổi chat), cấm nhận xét chung chung.
-- **🌱 Chế độ mất gốc** (cho người mới bắt đầu lại): AI dùng câu thật đơn giản kèm dịch tiếng Việt dưới mỗi câu; gõ tiếng Việt cũng được — AI chỉ cách nói rồi trò chuyện tiếp. Cỡ chữ chỉnh tới Rất lớn.
+## Features
 
-## Chạy thử trên máy tính
+- **💬 Chat**: the AI is a patient conversation buddy that never interrupts to correct you mid-conversation — tap "End session" to get a gentle review instead. Tap any word in an AI message to look it up and save it to your word book. Stuck? Tap 💡 for three suggested replies with translations. Tap 🎤 to speak — the AI listens to your audio directly, replies, and reads its answer aloud.
+- **🎧 Listening**: the AI generates listening exercises (dialogue / story / news) matched to your level and interests, weaving in the words you're currently studying. Transcript is blurred for blind listening first, playback speed 0.6x–1.2x, and a 3-question quiz at the end.
+- **📚 Vocabulary**: spaced-repetition review (SM-2: Again / Hard / Good / Easy), automatic pronunciation on card flip, manual word entry. In Chinese mode: a ✍️ handwriting panel — watch the stroke-order animation, then trace it yourself.
+- **🧭 Study plan**: daily streak 🔥, a 3-item daily checklist, and a 7-day plan generator — the AI reads your actual data (words you keep forgetting, past sessions) and is explicitly forbidden from generic advice.
+- **🌱 Foundation mode** (for adults restarting from zero): ultra-simple sentences with a Vietnamese translation under each one; you can even type in Vietnamese and the AI shows you how to say it. Font size adjustable up to extra large.
 
-Mở `app/index.html` bằng Chrome/Edge. Vào ⚙️ Cài đặt → dán API key (lấy miễn phí tại [aistudio.google.com](https://aistudio.google.com) → API keys) → bấm 🔌 Kiểm tra kết nối. Lưu ý: micro chỉ hoạt động khi chạy qua https (bản GitHub Pages).
+## Try it on a computer
 
-## Cài lên điện thoại (GitHub Pages)
+Open `app/index.html` in Chrome/Edge. Go to ⚙️ Settings → paste your API key (free at [aistudio.google.com](https://aistudio.google.com) → API keys) → tap 🔌 Test connection. Note: the microphone only works over https (the GitHub Pages build).
 
-1. Push code lên GitHub (xem bên dưới) — repo cần để **Public**.
-2. Trên GitHub: **Settings → Pages → Source: Deploy from a branch → Branch `main`, folder `/ (root)` → Save**.
-3. Đợi ~1 phút, mở trên điện thoại: `https://chuyennm.github.io/TalkMate/`
-4. Chọn **"Thêm vào màn hình chính"** (Add to Home Screen) — app có icon, chạy toàn màn hình như app thật.
-5. Dán API key trong ⚙️ Cài đặt (một lần cho mỗi máy). Lần đầu bấm 🎤 nhớ cho phép quyền micro.
+## Install on your phone (GitHub Pages)
 
-## Đẩy code
+1. Push the code to GitHub (below) — the repo must be **Public**.
+2. On GitHub: **Settings → Pages → Source: Deploy from a branch → Branch `main`, folder `/ (root)` → Save**.
+3. Wait ~1 minute, then open on your phone: `https://chuyennm.github.io/TalkMate/`
+4. Choose **"Add to Home Screen"** — the app gets an icon and runs full-screen like a native app.
+5. Paste your API key in ⚙️ Settings (once per device). Allow microphone access the first time you tap 🎤.
 
-Lần đầu:
+## Pushing code
+
+First time:
 
 ```
 git init
@@ -39,23 +41,23 @@ git remote add origin https://github.com/chuyennm/TalkMate.git
 git push -u origin main
 ```
 
-Các lần sau: `git add . && git commit -m "..." && git push`. App đã cài trên điện thoại tự nhận bản mới sau khi mở lại 1–2 lần.
+After that: `git add . && git commit -m "..." && git push`. Installed phones pick up the new version after reopening the app once or twice.
 
-## Dữ liệu & chi phí
+## Data & cost
 
-- API key và toàn bộ dữ liệu học chỉ lưu trong trình duyệt của máy bạn — không nằm trong code, repo để public vẫn an toàn.
-- Dùng 2 điện thoại: nút **Xuất/Nhập file** trong ⚙️ Cài đặt để chuyển sổ từ + tiến độ (file JSON).
-- Gemini free tier đủ cho 30–60 phút học/ngày. TTS giọng đọc của điện thoại: miễn phí. Hosting GitHub Pages: miễn phí.
+- Your API key and all learning data live only in your device's browser — never in the code, so a public repo is safe.
+- Using two phones? The **Export/Import** buttons in ⚙️ Settings move your word book and progress as a JSON file.
+- Gemini's free tier covers 30–60 minutes of study per day. Browser TTS voices: free. GitHub Pages hosting: free.
 
-## Cấu trúc
+## Project layout
 
 ```
 TalkMate/
-├── index.html            ← redirect vào app/
-├── PLAN.md               ← kiến trúc + lịch sử phát triển + hướng mở rộng
+├── index.html            ← redirects to app/
+├── PLAN.md               ← architecture, dev history, roadmap (Vietnamese)
 └── app/
-    ├── index.html        ← toàn bộ app (HTML + CSS + JS, 1 file)
+    ├── index.html        ← the entire app (HTML + CSS + JS, one file)
     ├── manifest.webmanifest
-    ├── sw.js             ← service worker (cache offline)
+    ├── sw.js             ← service worker (offline shell cache)
     └── icon-192.png / icon-512.png
 ```
