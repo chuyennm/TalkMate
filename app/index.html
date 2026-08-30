@@ -111,6 +111,7 @@ input[type=text],input[type=password],select,textarea{
 #lnScript{margin-top:12px}
 .ln-line{padding:7px 10px; border-radius:10px; margin-bottom:6px; line-height:1.5; font-size:15px}
 .ln-line b{color:var(--brand); margin-right:6px}
+.ln-p{font-size:12px; color:var(--muted); margin-top:2px}
 .ln-line.now{background:var(--brand-soft)}
 .ln-hidden #lnScript .ln-line{filter:blur(5px); user-select:none}
 #lnCtrl{display:flex; gap:8px; flex-wrap:wrap; margin-top:12px}
@@ -413,6 +414,39 @@ const L = ()=> LANGS[store.get('lang','en')] || LANGS.en;
 const W = ()=> words.filter(w => (w.lang||'en') === store.get('lang','en'));
 
 /* ================= Gemini ================= */
+function parseJson(out){
+  let t = String(out).trim().replace(/^```(?:json)?\s*/i,'').replace(/```\s*$/,'');
+  try{ return JSON.parse(t); }catch(e){}
+  const a = t.search(/[\[{]/);
+  if(a<0) throw new Error('AI trả về không đúng định dạng — thử lại nhé');
+  t = t.slice(a);
+  const b = Math.max(t.lastIndexOf('}'), t.lastIndexOf(']'));
+  if(b>0){ try{ return JSON.parse(t.slice(0, b+1)); }catch(e){} }
+  // phản hồi bị cắt cụt: đóng chuỗi/ngoặc còn mở theo đúng thứ tự
+  function repair(frag){
+    const stack=[]; let inStr=false, escp=false;
+    for(const c of frag){
+      if(inStr){ if(escp) escp=false; else if(c==='\\') escp=true; else if(c==='"') inStr=false; continue; }
+      if(c==='"') inStr=true;
+      else if(c==='{') stack.push('}');
+      else if(c==='[') stack.push(']');
+      else if(c==='}'||c===']') stack.pop();
+    }
+    let fixed = frag;
+    if(inStr) fixed += '"';
+    fixed = fixed.replace(/[,:\s]+$/,'').replace(/,\s*"[^"]*"$/,'');
+    while(stack.length) fixed += stack.pop();
+    return fixed;
+  }
+  try{ return JSON.parse(repair(t)); }catch(e){}
+  // vẫn hỏng: lùi dần về từng điểm đóng ngoặc rồi vá lại
+  for(let i=t.length-1; i>1; i--){
+    if(t[i]==='}' || t[i]===']'){
+      try{ return JSON.parse(repair(t.slice(0, i+1))); }catch(e){}
+    }
+  }
+  throw new Error('Phản hồi AI bị cắt giữa chừng — bấm tạo lại nhé');
+}
 async function gemini(contents, system, wantJson=false){
   const key = store.get('apiKey','');
   if(!key){ throw new Error('NO_KEY'); }
@@ -420,7 +454,7 @@ async function gemini(contents, system, wantJson=false){
   const body = {
     contents,
     systemInstruction: { parts: [{ text: system }] },
-    generationConfig: Object.assign({ temperature: 0.8, maxOutputTokens: 1200 },
+    generationConfig: Object.assign({ temperature: 0.8, maxOutputTokens: 8192 },
       wantJson ? { responseMimeType: 'application/json' } : {})
   };
   const r = await fetch(
@@ -618,7 +652,7 @@ $('#btnSuggest').onclick = async ()=>{
   try{
     const convo = chatLog.slice(-6).map(m=>(m.role==='user'?'Learner: ':'TalkMate: ')+m.text).join('\n') || '(conversation just started — suggest 3 friendly openers)';
     const out = await gemini([{role:'user', parts:[{text:convo}]}], SUGGEST_SYSTEM(), true);
-    const sugs = JSON.parse(out).slice(0,3);
+    const sugs = parseJson(out).slice(0,3);
     const d = document.createElement('div');
     d.className = 'msg sys';
     d.innerHTML = '💡 Bạn có thể nói (chạm để dùng, sửa lại tuỳ ý):' +
@@ -740,7 +774,7 @@ chatScroll.addEventListener('click', async e=>{
     const out = await gemini(
       [{role:'user', parts:[{text:`Word: "${raw}"\nSentence: "${sentence}"`}]}],
       LOOKUP_SYSTEM(), true);
-    const j = JSON.parse(out);
+    const j = parseJson(out);
     dlgData = { word: (j.word||raw).toLowerCase(), ipa: j.ipa||'', mean: j.mean||'', ex: j.ex||'' };
     $('#dlgWord').textContent = dlgData.word;
     $('#dlgBody').innerHTML = `<b>${esc(dlgData.ipa)}</b><br>${esc(dlgData.mean)}<br><i>${esc(dlgData.ex)}</i>`;
@@ -811,7 +845,7 @@ $('#btnAddWord').onclick = async ()=>{
   btn.disabled = true; btn.innerHTML = '<span class="spin"></span>';
   try{
     const out = await gemini([{role:'user', parts:[{text:`Word: "${raw}"\nSentence: ""`}]}], LOOKUP_SYSTEM(), true);
-    const j = JSON.parse(out);
+    const j = parseJson(out);
     words.push({id: Date.now(), lang: store.get('lang','en'), word:(j.word||raw).toLowerCase(), ipa:j.ipa||'', mean:j.mean||'', ex:j.ex||'',
       ease:2.5, ivl:0, due: Date.now(), reps:0, added: today()});
     store.set('words', words);
@@ -860,7 +894,8 @@ $('#wordList').addEventListener('click', e=>{
 /* ================= Listening (Phase 2) ================= */
 const LISTEN_SYSTEM = () => `You create short listening exercises for a Vietnamese learner of English. ${profileNote()}
 Reply ONLY with JSON:
-{"title":"short English title","lines":[{"s":"speaker name or 'Narrator'","t":"one sentence or short utterance"}],"questions":[{"q":"comprehension question in English","opts":["A","B","C","D"],"a":0}]}
+{"title":"short title in ${L().label}","lines":[{"s":"speaker name or 'Narrator'","t":"one sentence or short utterance"}],"questions":[{"q":"comprehension question in ${L().label}","opts":["A","B","C","D"],"a":0}]}
+${L().extra ? 'Every line object must ALSO include "p": the '+L().pron+' for that line.' : ''}
 Rules: 8-14 lines total, natural spoken ${L().label} matched to the learner's level; if learner words were listed in the profile, weave 2-4 of them in naturally. Exactly 3 questions, each with 4 options, "a" is the index of the correct option. No markdown.`;
 let lnData = null, lnUtterQueue = [], lnPlaying = false;
 
@@ -874,7 +909,7 @@ $('#btnGenListen').onclick = async ()=>{
     const out = await gemini(
       [{role:'user', parts:[{text:`Create ${type}${topic? ' about: '+topic : ' about a topic the learner would enjoy'}.`}]}],
       LISTEN_SYSTEM(), true);
-    lnData = JSON.parse(out);
+    lnData = parseJson(out);
     if(!lnData.lines || !lnData.lines.length) throw new Error('Bài nghe trống, thử lại nhé');
     renderListen();
     bump('listen');
@@ -889,7 +924,7 @@ function renderListen(){
   $('#btnScriptToggle').textContent='👁 Hiện lời thoại';
   $('#lnTitle').textContent = lnData.title || 'Listening';
   $('#lnScript').innerHTML = lnData.lines.map((l,i)=>
-    `<div class="ln-line" data-i="${i}"><b>${esc(l.s)}:</b>${esc(l.t)}</div>`).join('');
+    `<div class="ln-line" data-i="${i}"><b>${esc(l.s)}:</b>${esc(l.t)}${l.p?`<div class="ln-p">${esc(l.p)}</div>`:''}</div>`).join('');
   // quiz
   const qc = $('#lnQuizCard'); qc.style.display='block';
   $('#lnScore').textContent=''; qc.dataset.right='0'; qc.dataset.done='0';
