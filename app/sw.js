@@ -1,5 +1,5 @@
 /* TalkMate service worker — cache app shell, network-first for updates */
-const CACHE = 'talkmate-v4';
+const CACHE = 'talkmate-v6';
 const SHELL = ['./index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', e => {
