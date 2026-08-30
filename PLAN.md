@@ -50,9 +50,12 @@ TalkMate/
 - Chế độ shadowing: TTS đọc câu → bạn nói lại → AI nghe và nhận xét chung (nhịp, từ nào nghe chưa rõ) — nhận xét kiểu bạn bè, không chấm điểm.
 - Nếu sau này muốn chấm phát âm chi tiết từng âm: ghép thêm Azure Pronunciation Assessment (có free tier), nhưng không bắt buộc.
 
-### Phase 4 (tuỳ chọn) — Giáo viên riêng
+### Phase 4 — Giáo viên riêng + hỗ trợ người mất gốc ✅ (tab 🧭 Lộ trình)
 
-- Log mọi buổi học đã có sẵn từ Phase 1. Thêm nút "Tuần này học gì?": AI đọc log → nhận xét tiến bộ, đề xuất chủ đề + từ vựng tuần tới.
+- Tab 🧭 Lộ trình: chuỗi ngày học 🔥, checklist hôm nay (ôn từ / 1 bài nghe / 5 câu trò chuyện), nút "Soạn lộ trình tuần" — AI đọc dữ liệu học THẬT (từ hay quên, tổng kết các buổi, mức đều đặn) và soạn kế hoạch 7 ngày bám đúng app, cấm nhận xét chung chung.
+- **Chế độ mất gốc 🌱** (bật trong Cài đặt): AI dùng tiếng Anh A1 thật đơn giản, kèm dịch tiếng Việt dưới mỗi câu; gõ tiếng Việt hoặc trộn Việt–Anh đều được — AI chỉ cách nói câu đó bằng tiếng Anh rồi trò chuyện tiếp.
+- Nút 💡 khi bí: AI gợi ý 3 cách trả lời (kèm nghĩa tiếng Việt), chạm để dùng và sửa tuỳ ý.
+- Cỡ chữ chỉnh được (đến Rất lớn) cho người lớn tuổi.
 - Khi gần thi IELTS: thêm prompt chấm Writing Task 1/2 theo band descriptor (chỉ là một màn hình mới, không đổi kiến trúc).
 
 ## Cách chạy app (Phase 1)
