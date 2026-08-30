@@ -6,7 +6,7 @@ A personal language-learning app that runs on your phone as a PWA: chat with an 
 
 **Supported languages:** 🇬🇧 English · 🇨🇳 Chinese · 🇯🇵 Japanese · 🇰🇷 Korean · 🇫🇷 French · 🇪🇸 Spanish — pick one in ⚙️ Settings; each language keeps its own word book and TTS voice. Chinese mode adds **stroke-order handwriting practice** for Hanzi (trace each stroke with your finger, graded stroke by stroke).
 
-No server, no accounts — it runs on your own free Gemini API key, and all learning data stays on your device. The app's interface and explanations are in Vietnamese (built for Vietnamese native speakers).
+No server, no accounts — it runs on your own free Gemini API key, and all learning data stays on your device. Interface available in **English and Vietnamese** (⚙️ Settings → Interface language) — the AI explains, translates, and coaches in whichever you pick.
 
 ## Features
 

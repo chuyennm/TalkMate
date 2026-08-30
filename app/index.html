@@ -141,6 +141,12 @@ input[type=text],input[type=password],select,textarea{
 .hw-char{min-width:44px;height:44px;font-size:22px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink);cursor:pointer}
 .hw-char.on{border-color:var(--brand);background:var(--brand-soft);color:var(--brand);font-weight:700}
 .wordrow .hw{background:none;border:none;font-size:15px;cursor:pointer;padding:2px 4px}
+.hw-rules{margin-top:8px}
+.hw-rule{font-size:13px;color:var(--muted);line-height:1.6;padding:5px 0;border-bottom:1px dashed var(--line);display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.hw-rule:last-child{border-bottom:none}
+.hw-rule b{color:var(--ink)}
+.hw-exs{margin-left:auto;display:flex;gap:4px}
+.hw-ex{min-width:34px;height:34px;font-size:17px;border:1px solid var(--brand);border-radius:8px;background:var(--brand-soft);color:var(--brand);cursor:pointer}
 
 /* ---- misc ---- */
 #toast{
@@ -260,6 +266,7 @@ dialog::backdrop{background:rgba(0,0,0,.45)}
           <button class="btn" id="btnHwQuiz">✍️ Tập viết</button>
         </div>
         <div class="hint" id="hwStatus" style="text-align:center"></div>
+        <details id="hwGuide" style="margin-top:10px"></details>
       </div>
       <div class="card">
         <h2>Sổ từ (<span id="wordTotal">0</span>)</h2>
@@ -296,6 +303,13 @@ dialog::backdrop{background:rgba(0,0,0,.45)}
   <section class="view" id="view-settings">
     <div class="pad">
       <div class="card">
+        <h2>🌐 Ngôn ngữ giao diện</h2>
+        <select id="setUi">
+          <option value="vi">Tiếng Việt</option>
+          <option value="en">English</option>
+        </select>
+      </div>
+      <div class="card">
         <h2>Kết nối Gemini</h2>
         <label>API key</label>
         <input type="password" id="setKey" placeholder="Dán API key vào đây" autocomplete="off">
@@ -305,7 +319,7 @@ dialog::backdrop{background:rgba(0,0,0,.45)}
           <option value="gemini-2.5-flash-lite">gemini-2.5-flash-lite (nhẹ, nhanh)</option>
           <option value="gemini-2.5-pro">gemini-2.5-pro (thông minh hơn, chậm hơn)</option>
         </select>
-        <div class="hint">Lấy key miễn phí tại <a href="https://aistudio.google.com" target="_blank" rel="noopener">aistudio.google.com</a> → API keys. Key chỉ lưu trong máy bạn.</div>
+        <div class="hint" id="kHint"></div>
         <button class="btn ghost" id="btnTestKey" style="width:100%;margin-top:12px">🔌 Kiểm tra kết nối</button>
       </div>
       <div class="card">
@@ -332,7 +346,7 @@ dialog::backdrop{background:rgba(0,0,0,.45)}
           <input type="checkbox" id="setFoundation" style="width:20px;height:20px">
           Chế độ mất gốc 🌱
         </label>
-        <div class="hint">AI dùng tiếng Anh thật đơn giản, <b>kèm dịch tiếng Việt dưới mỗi câu</b>. Bạn gõ tiếng Việt hoặc trộn Việt–Anh cũng được — AI sẽ chỉ cách nói câu đó bằng ngôn ngữ bạn học rồi trò chuyện tiếp.</div>
+        <div class="hint" id="fHint"></div>
         <label>Cỡ chữ</label>
         <select id="setFont">
           <option value="15">Nhỏ</option>
@@ -355,7 +369,7 @@ dialog::backdrop{background:rgba(0,0,0,.45)}
         <div id="sessionLog" class="hint" style="margin:0">Chưa có buổi nào.</div>
       </div>
       <button class="btn" id="btnSaveSet" style="width:100%">Lưu cài đặt</button>
-      <div class="hint" style="text-align:center;margin-top:10px">TalkMate · Phase 1 · dữ liệu nằm trong máy bạn</div>
+      <div class="hint" style="text-align:center;margin-top:10px" id="footHint"></div>
     </div>
   </section>
 </main>
@@ -411,6 +425,9 @@ const LANGS = {
   es:{name:'Tiếng Tây Ban Nha 🇪🇸', label:'Spanish', tts:'es-ES', vf:'es', pron:'IPA', extra:''}
 };
 const L = ()=> LANGS[store.get('lang','en')] || LANGS.en;
+const UI = ()=> store.get('ui','vi');
+const T = (vi,en)=> UI()==='vi' ? vi : en;
+const NAT = ()=> UI()==='en' ? {label:'English'} : {label:'Vietnamese'};
 const W = ()=> words.filter(w => (w.lang||'en') === store.get('lang','en'));
 
 /* ================= Gemini ================= */
@@ -418,7 +435,7 @@ function parseJson(out){
   let t = String(out).trim().replace(/^```(?:json)?\s*/i,'').replace(/```\s*$/,'');
   try{ return JSON.parse(t); }catch(e){}
   const a = t.search(/[\[{]/);
-  if(a<0) throw new Error('AI trả về không đúng định dạng — thử lại nhé');
+  if(a<0) throw new Error(T('AI trả về không đúng định dạng — thử lại nhé','The AI reply was malformed — please try again'));
   t = t.slice(a);
   const b = Math.max(t.lastIndexOf('}'), t.lastIndexOf(']'));
   if(b>0){ try{ return JSON.parse(t.slice(0, b+1)); }catch(e){} }
@@ -445,7 +462,7 @@ function parseJson(out){
       try{ return JSON.parse(repair(t.slice(0, i+1))); }catch(e){}
     }
   }
-  throw new Error('Phản hồi AI bị cắt giữa chừng — bấm tạo lại nhé');
+  throw new Error(T('Phản hồi AI bị cắt giữa chừng — bấm tạo lại nhé','The AI reply was cut off — please generate again'));
 }
 async function gemini(contents, system, wantJson=false){
   const key = store.get('apiKey','');
@@ -463,46 +480,46 @@ async function gemini(contents, system, wantJson=false){
   if(!r.ok){
     let msg = 'HTTP '+r.status;
     try{ msg = (await r.json()).error.message || msg; }catch(e){}
-    if(/API key not valid|API_KEY_INVALID|401|403/i.test(msg)) msg = 'API key không đúng — kiểm tra lại trong ⚙️ Cài đặt nhé';
-    else if(/429|RESOURCE_EXHAUSTED|quota|rate/i.test(msg)) msg = 'Tạm hết lượt miễn phí — nghỉ khoảng 1 phút rồi thử lại nhé ☕';
-    else if(/overloaded|503|UNAVAILABLE/i.test(msg)) msg = 'Máy chủ Gemini đang bận — thử lại sau vài giây nhé';
+    if(/API key not valid|API_KEY_INVALID|401|403/i.test(msg)) msg = T('API key không đúng — kiểm tra lại trong ⚙️ Cài đặt nhé','Invalid API key — double-check it in ⚙️ Settings');
+    else if(/429|RESOURCE_EXHAUSTED|quota|rate/i.test(msg)) msg = T('Tạm hết lượt miễn phí — nghỉ khoảng 1 phút rồi thử lại nhé ☕','Free-tier limit reached — wait about a minute and try again ☕');
+    else if(/overloaded|503|UNAVAILABLE/i.test(msg)) msg = T('Máy chủ Gemini đang bận — thử lại sau vài giây nhé','Gemini servers are busy — try again in a few seconds');
     throw new Error(msg);
   }
   const j = await r.json();
   const parts = j?.candidates?.[0]?.content?.parts;
-  if(!parts) throw new Error('Phản hồi trống (có thể bị chặn an toàn). Thử lại nhé.');
+  if(!parts) throw new Error(T('Phản hồi trống (có thể bị chặn an toàn). Thử lại nhé.','Empty response (possibly safety-blocked). Please try again.'));
   return parts.map(p=>p.text||'').join('');
 }
 function profileNote(){
   const lv = { beginner:'A1–A2 (beginner)', intermediate:'B1–B2 (intermediate)', advanced:'C1 (advanced)' }[store.get('level','intermediate')];
   const tp = store.get('topics','');
   const learning = W().filter(w=>w.reps<3).slice(-12).map(w=>w.word).join(', ');
-  return 'Learner profile: Vietnamese native speaker learning '+L().label+', level '+lv+'.'
+  return 'Learner profile: '+NAT().label+' native speaker learning '+L().label+', level '+lv+'.'
     + (tp? ' Favorite topics: '+tp+'.':'')
     + (learning? ' Words they are currently learning (weave some in naturally when it fits): '+learning+'.':'');
 }
-const FOUNDATION_RULES = `
+const FOUNDATION_RULES = () => `
 FOUNDATION MODE (the learner is an adult starting this language from almost zero — treat with extra patience, never make them feel behind):
 - Use ONLY very common everyday words (A1). Maximum 2 short sentences per reply.
-- After EVERY sentence in the target language, add its Vietnamese translation in parentheses.
-- The learner may write in Vietnamese or mix Vietnamese with the target language. That is always OK. When they write Vietnamese, first show them naturally: 'You can say: "..." (nghĩa là: ...)', then continue the chat.
+- After EVERY sentence in the target language, add its ${NAT().label} translation in parentheses.
+- The learner may write in ${NAT().label} or mix it with the target language. That is always OK. When they write ${NAT().label}, first show them naturally how to say it in the target language: 'You can say: "..." (= ...)', then continue the chat.
 - Celebrate every attempt. One tiny step at a time.`;
 const CHAT_SYSTEM = () => `You are TalkMate, a warm, patient ${L().label} conversation buddy inside a personal learning app.
-${profileNote()}${store.get('foundation',false) ? FOUNDATION_RULES : ''}
+${profileNote()}${store.get('foundation',false) ? FOUNDATION_RULES() : ''}
 Rules:
 - Chat naturally in ${L().label}, like a friendly peer.${L().extra} Keep replies SHORT: 1-3 sentences, then usually one easy follow-up question to keep the conversation going.
 - Match the learner's level: simple clear vocabulary, but occasionally introduce ONE slightly-above-level word in a guessable context.
 - NEVER interrupt to correct grammar or word choice mid-conversation. No teaching tone. If you truly cannot understand, ask casually ("Sorry, do you mean...?").
 - Be encouraging and curious about what they say. Never mock mistakes.
 - Do not use markdown formatting. Plain text only. Emojis are fine, sparingly.`;
-const SUMMARY_SYSTEM = () => `You are a kind Vietnamese-speaking ${L().label} coach reviewing a practice chat. ${profileNote()}
-Write the review in VIETNAMESE, friendly and encouraging, using this plain-text structure (no markdown):
-1) Một câu khen cụ thể về điều học viên làm tốt.
-2) "Điểm nói tự nhiên hơn:" tối đa 3 chỗ, mỗi chỗ trên một dòng dạng: câu gốc → cách nói tự nhiên hơn (giải thích ngắn bằng tiếng Việt). Chỉ chọn lỗi đáng giá nhất, bỏ qua lỗi vặt.
-3) "Từ hay hôm nay:" 3-5 từ/cụm hữu ích rút từ chính cuộc trò chuyện (hoặc lẽ ra dùng được), dạng: từ (phiên âm) — nghĩa tiếng Việt.
+const SUMMARY_SYSTEM = () => `You are a kind ${L().label} coach reviewing a practice chat. ${profileNote()}
+Write the review in ${NAT().label}, friendly and encouraging, plain text (no markdown), with this structure:
+1) One specific compliment about something the learner did well.
+2) A short heading meaning "Ways to sound more natural:" (written in ${NAT().label}) — at most 3 items, one per line: original → more natural version (brief explanation in ${NAT().label}). Only the most valuable fixes, skip trivial slips.
+3) A short heading meaning "Today's useful words:" — 3-5 useful words/phrases drawn from this conversation, format: word (pronunciation) — meaning in ${NAT().label}.
 Keep it under 220 words. Warm tone, no scolding.`;
-const LOOKUP_SYSTEM = () => `You are a dictionary API for Vietnamese learners of ${L().label}. Given a word (or a single character — then pick the most useful WORD containing it in the sentence) and the sentence it appeared in, reply ONLY with JSON:
-{"word":"base form in ${L().label}","ipa":"pronunciation: ${L().pron}","mean":"nghĩa tiếng Việt ngắn gọn (đúng nghĩa trong ngữ cảnh)","ex":"one short natural example sentence in ${L().label}"}`;
+const LOOKUP_SYSTEM = () => `You are a dictionary API for ${NAT().label}-speaking learners of ${L().label}. Given a word (or a single character — then pick the most useful WORD containing it in the sentence) and the sentence it appeared in, reply ONLY with JSON:
+{"word":"base form in ${L().label}","ipa":"pronunciation: ${L().pron}","mean":"concise meaning in ${NAT().label}, matching the context","ex":"one short natural example sentence in ${L().label}"}`;
 
 /* ================= Chat UI ================= */
 const chatScroll = $('#chatScroll');
@@ -525,13 +542,15 @@ function renderChat(){
   if(!store.get('apiKey','')){
     const d = document.createElement('div');
     d.className = 'msg sys';
-    d.innerHTML = '👋 <b>Chào mừng đến TalkMate!</b><br>Để bắt đầu, cần kết nối AI (miễn phí, làm một lần):<br><br>1️⃣ Vào <b>aistudio.google.com</b> trên trình duyệt, đăng nhập Google<br>2️⃣ Bấm <b>Get API key → Create API key</b>, chép chuỗi ký tự<br>3️⃣ Dán vào ô API key trong Cài đặt của app này<br><button class="sug-opt" id="goSetup" style="margin-top:8px">⚙️ Mở Cài đặt ngay</button>';
+    d.innerHTML = T('👋 <b>Chào mừng đến TalkMate!</b><br>Để bắt đầu, cần kết nối AI (miễn phí, làm một lần):<br><br>1️⃣ Vào <b>aistudio.google.com</b> trên trình duyệt, đăng nhập Google<br>2️⃣ Bấm <b>Get API key → Create API key</b>, chép chuỗi ký tự<br>3️⃣ Dán vào ô API key trong Cài đặt của app này<br><button class="sug-opt" id="goSetup" style="margin-top:8px">⚙️ Mở Cài đặt ngay</button>',
+      '👋 <b>Welcome to TalkMate!</b><br>To start, connect the AI (free, one time):<br><br>1️⃣ Open <b>aistudio.google.com</b> and sign in with Google<br>2️⃣ Click <b>Get API key → Create API key</b> and copy it<br>3️⃣ Paste it into the API key field in this app\'s Settings<br><button class="sug-opt" id="goSetup" style="margin-top:8px">⚙️ Open Settings</button>');
     chatScroll.appendChild(d);
     d.querySelector('#goSetup').onclick = ()=> switchView('settings');
     return;
   }
   if(chatLog.length === 0){
-    addBubble('sys','Chào bạn 👋 Đây là chỗ luyện '+langName()+' thoải mái — sai cũng không sao, không ai chấm điểm cả.\nGõ bằng '+langName()+' (bật Chế độ mất gốc 🌱 thì gõ tiếng Việt cũng được), hoặc bấm 🎤 để nói. Bí quá thì bấm 💡 để xem gợi ý!');
+    addBubble('sys', T('Chào bạn 👋 Đây là chỗ luyện '+langName()+' thoải mái — sai cũng không sao, không ai chấm điểm cả.\nGõ bằng '+langName()+' (bật Chế độ mất gốc 🌱 thì gõ tiếng Việt cũng được), hoặc bấm 🎤 để nói. Bí quá thì bấm 💡 để xem gợi ý!',
+      'Hi 👋 This is a safe place to practice '+langName()+' — mistakes are fine, nobody is grading you.\nType in '+langName()+' (with Foundation mode 🌱 on, your own language works too), or tap 🎤 to speak. Stuck? Tap 💡 for hints!'));
   }
   chatLog.forEach(m => addBubble(m.role === 'user' ? 'me' : 'ai', m.text));
 }
@@ -539,7 +558,7 @@ async function sendChat(){
   const inp = $('#chatInput');
   const text = inp.value.trim();
   if(!text) return;
-  if(!store.get('apiKey','')){ toast('Chưa có API key — vào ⚙️ Cài đặt để dán key nhé'); switchView('settings'); return; }
+  if(!store.get('apiKey','')){ toast(T('Chưa có API key — vào ⚙️ Cài đặt để dán key nhé','No API key yet — paste one in ⚙️ Settings')); switchView('settings'); return; }
   inp.value=''; inp.style.height='auto';
   chatLog.push({role:'user', text});
   addBubble('me', text);
@@ -553,31 +572,31 @@ async function sendChat(){
     bump('chat');
   }catch(e){
     chatLog.pop();
-    addBubble('sys','⚠️ Lỗi: ' + (e.message==='NO_KEY'?'chưa có API key.':e.message));
+    addBubble('sys','⚠️ Lỗi: ' + (e.message==='NO_KEY'?T('chưa có API key.','no API key yet.'):e.message));
   }finally{
     $('#typing').style.display='none'; $('#btnSend').disabled=false;
   }
 }
 async function endSession(){
   const userMsgs = chatLog.filter(m=>m.role==='user').length;
-  if(userMsgs === 0){ toast('Bạn chưa nhắn gì trong buổi này mà 😄'); return; }
+  if(userMsgs === 0){ toast(T('Bạn chưa nhắn gì trong buổi này mà 😄',"You haven't said anything this session yet 😄")); return; }
   $('#btnEndChat').disabled = true; $('#typing').style.display='block';
   try{
     const convo = chatLog.map(m=>(m.role==='user'?'Learner: ':'TalkMate: ')+m.text).join('\n');
     const summary = await gemini([{role:'user', parts:[{text:'Here is the practice conversation:\n\n'+convo}]}], SUMMARY_SYSTEM());
-    addBubble('sys','📋 Tổng kết buổi học\n\n'+summary.trim());
+    addBubble('sys',T('📋 Tổng kết buổi học','📋 Session review')+'\n\n'+summary.trim());
     sessions.push({date: new Date().toISOString(), msgs: userMsgs, summary: summary.trim()});
     store.set('sessions', sessions);
     renderSessions();
-    toast('Đã lưu tổng kết. Bấm "Buổi mới" để bắt đầu lại.');
+    toast(T('Đã lưu tổng kết. Bấm "Buổi mới" để bắt đầu lại.','Review saved. Tap "New session" to start again.'));
   }catch(e){
-    addBubble('sys','⚠️ Không tổng kết được: '+e.message);
+    addBubble('sys','⚠️ '+T('Không tổng kết được: ','Could not create the review: ')+e.message);
   }finally{
     $('#btnEndChat').disabled=false; $('#typing').style.display='none';
   }
 }
 function newChat(){
-  if(chatLog.length && !confirm('Bắt đầu buổi mới? Nội dung chat hiện tại sẽ được xoá (tổng kết đã lưu thì vẫn còn).')) return;
+  if(chatLog.length && !confirm(T('Bắt đầu buổi mới? Nội dung chat hiện tại sẽ được xoá (tổng kết đã lưu thì vẫn còn).','Start a new session? The current chat is cleared (saved reviews are kept).'))) return;
   chatLog = []; store.set('chatLog', chatLog); renderChat();
 }
 
@@ -606,25 +625,26 @@ function renderCoach(){
   $('#stSessions').textContent = sessions.length;
   const a = act(), due = dueWords().length;
   const items = [
-    {t:'Ôn hết từ đến hạn', done: W().length>0 && due===0, sub: due>0 ? 'còn '+due+' từ' : (W().length? 'xong 🎉':'chưa có từ nào')},
-    {t:'Nghe 1 bài', done: a.listen>0, sub: a.listen>0 ? 'xong 🎉' : 'tab 🎧 Nghe'},
-    {t:'Trò chuyện 5 câu (gõ hoặc nói)', done: a.chat>=5, sub: Math.min(a.chat,5)+'/5'}
+    {t:T('Ôn hết từ đến hạn','Clear all due cards'), done: W().length>0 && due===0, sub: due>0 ? T('còn '+due+' từ',due+' left') : (W().length? T('xong 🎉','done 🎉'):T('chưa có từ nào','no words yet'))},
+    {t:T('Nghe 1 bài','Do 1 listening exercise'), done: a.listen>0, sub: a.listen>0 ? T('xong 🎉','done 🎉') : T('tab 🎧 Nghe','🎧 Listen tab')},
+    {t:T('Trò chuyện 5 câu (gõ hoặc nói)','Send 5 chat messages (typed or spoken)'), done: a.chat>=5, sub: Math.min(a.chat,5)+'/5'}
   ];
   $('#todayList').innerHTML = items.map(i=>
     `<div class="chk ${i.done?'done':''}"><span class="box">${i.done?'✅':'⬜'}</span>${i.t}<span class="sub">${i.sub}</span></div>`).join('');
   const plan = store.get('plan', null);
-  if(plan) $('#coachPlan').textContent = '🗓 Soạn ngày '+plan.date+'\n\n'+plan.text;
+  if(plan) $('#coachPlan').textContent = T('🗓 Soạn ngày ','🗓 Written on ')+plan.date+'\n\n'+plan.text;
+  else $('#coachPlan').textContent = T('Bấm nút bên dưới — AI sẽ đọc nhật ký học thật của bạn (từ hay quên, các buổi trò chuyện, mức đều đặn) và soạn kế hoạch 7 ngày cụ thể, không chung chung.','Tap the button below — the AI reads your real study log (words you keep forgetting, past sessions, consistency) and writes a concrete 7-day plan. No generic advice.');
 }
-const COACH_SYSTEM = () => `You are a Vietnamese-speaking personal ${L().label} coach for an adult learner. ${profileNote()}${store.get('foundation',false)?' The learner is in FOUNDATION mode (rebuilding from almost zero).':''}
-You will receive their REAL study data. Write in VIETNAMESE, plain text, no markdown, under 300 words:
-1) Nhận xét tiến bộ dựa trên SỐ LIỆU THẬT được cung cấp (nhắc con số cụ thể: bao nhiêu từ, chuỗi ngày, từ nào hay quên). Cấm khen chung chung.
-2) "Mục tiêu tuần này:" đúng 3 mục tiêu nhỏ, đo đếm được, vừa sức.
-3) "Kế hoạch 7 ngày:" mỗi ngày một dòng "Ngày X (15-20 phút): ..." — hoạt động phải là thứ làm được NGAY TRONG APP NÀY (ôn từ trong tab Từ vựng, tạo bài nghe chủ đề cụ thể trong tab Nghe, trò chuyện chủ đề cụ thể bằng 🎤 hoặc gõ chữ). Chủ đề phải bám sở thích và từ đang yếu của học viên.
-4) Một câu động viên ngắn, ấm áp, không sáo rỗng.`;
+const COACH_SYSTEM = () => `You are a personal ${L().label} coach for an adult learner. ${profileNote()}${store.get('foundation',false)?' The learner is in FOUNDATION mode (starting from almost zero).':''}
+You will receive their REAL study data. Write in ${NAT().label}, plain text, no markdown, under 300 words:
+1) Progress feedback grounded in the REAL numbers provided (mention concrete counts and the exact words they struggle with). Generic praise is forbidden.
+2) A heading meaning "This week's goals:" (in ${NAT().label}) — exactly 3 small, measurable, achievable goals.
+3) A heading meaning "7-day plan:" — one line per day, "Day X (15-20 min): ..." — every activity must be doable INSIDE THIS APP (review cards in the vocabulary tab, generate a listening exercise on a specific topic, chat about a specific topic by voice or text). Topics must match the learner's interests and weak words.
+4) One short, warm encouragement line, no clichés.`;
 $('#btnCoach').onclick = async ()=>{
-  if(!store.get('apiKey','')){ toast('Chưa có API key — vào ⚙️ Cài đặt nhé'); switchView('settings'); return; }
+  if(!store.get('apiKey','')){ toast(T('Chưa có API key — vào ⚙️ Cài đặt nhé','No API key yet — see ⚙️ Settings')); switchView('settings'); return; }
   const btn = $('#btnCoach');
-  btn.disabled = true; btn.innerHTML = '<span class="spin"></span> Đang đọc nhật ký học của bạn…';
+  btn.disabled = true; btn.innerHTML = '<span class="spin"></span> '+T('Đang đọc nhật ký học của bạn…','Reading your study log…');
   try{
     const weak = W().filter(w=>w.ease<2.35 || w.reps===0).slice(0,12).map(w=>w.word+' ('+w.mean+')').join(', ');
     const strong = W().filter(w=>w.reps>=3).slice(-8).map(w=>w.word).join(', ');
@@ -637,16 +657,16 @@ $('#btnCoach').onclick = async ()=>{
     const text = (await gemini([{role:'user', parts:[{text:data}]}], COACH_SYSTEM())).trim();
     store.set('plan', {date: today(), text});
     renderCoach();
-    toast('🧭 Lộ trình tuần đã sẵn sàng');
-  }catch(e){ toast('⚠️ '+(e.message==='NO_KEY'?'Chưa có API key.':e.message), 3500); }
-  finally{ btn.disabled=false; btn.textContent='✨ Soạn lộ trình tuần mới'; }
+    toast(T('🧭 Lộ trình tuần đã sẵn sàng','🧭 Your weekly plan is ready'));
+  }catch(e){ toast('⚠️ '+(e.message==='NO_KEY'?T('Chưa có API key.','No API key yet.'):e.message), 3500); }
+  finally{ btn.disabled=false; btn.textContent=T('✨ Soạn lộ trình tuần mới','✨ Write my weekly plan'); }
 };
 
 /* ================= Suggest replies (khi bí) ================= */
-const SUGGEST_SYSTEM = () => `You help a Vietnamese learner of ${L().label} who is stuck in a conversation. ${profileNote()}${store.get('foundation',false)?' Learner is a near-beginner: keep suggestions extremely simple (A1).':''}
-Given the conversation, reply ONLY with JSON: [{"en":"a natural reply they could send","vi":"nghĩa tiếng Việt"},...] — exactly 3 options, short (max 12 words each), different in meaning so they can pick what they actually want to say.`;
+const SUGGEST_SYSTEM = () => `You help a ${NAT().label}-speaking learner of ${L().label} who is stuck in a conversation. ${profileNote()}${store.get('foundation',false)?' Learner is a near-beginner: keep suggestions extremely simple (A1).':''}
+Given the conversation, reply ONLY with JSON: [{"en":"a natural reply they could send","vi":"meaning in ${NAT().label}"},...] — exactly 3 options, short (max 12 words each), different in meaning so they can pick what they actually want to say.`;
 $('#btnSuggest').onclick = async ()=>{
-  if(!store.get('apiKey','')){ toast('Chưa có API key — vào ⚙️ Cài đặt nhé'); switchView('settings'); return; }
+  if(!store.get('apiKey','')){ toast(T('Chưa có API key — vào ⚙️ Cài đặt nhé','No API key yet — see ⚙️ Settings')); switchView('settings'); return; }
   const btn = $('#btnSuggest');
   btn.disabled = true;
   try{
@@ -655,7 +675,7 @@ $('#btnSuggest').onclick = async ()=>{
     const sugs = parseJson(out).slice(0,3);
     const d = document.createElement('div');
     d.className = 'msg sys';
-    d.innerHTML = '💡 Bạn có thể nói (chạm để dùng, sửa lại tuỳ ý):' +
+    d.innerHTML = T('💡 Bạn có thể nói (chạm để dùng, sửa lại tuỳ ý):','💡 You could say (tap to use, edit freely):') +
       sugs.map(s=>`<button class="sug-opt" data-t="${esc(s.en)}">${esc(s.en)}<span class="vi">${esc(s.vi)}</span></button>`).join('');
     chatScroll.appendChild(d); chatScroll.scrollTop = chatScroll.scrollHeight;
   }catch(e){ toast('⚠️ '+e.message, 3000); }
@@ -686,16 +706,16 @@ let autoSpeak = store.get('autoSpeak', true);
 function renderAutoSpeak(){ $('#btnAutoSpeak').classList.toggle('off', !autoSpeak); }
 $('#btnAutoSpeak').onclick = ()=>{
   autoSpeak = !autoSpeak; store.set('autoSpeak', autoSpeak); renderAutoSpeak();
-  toast(autoSpeak ? '🔊 Sẽ tự đọc to câu trả lời cho tin nhắn giọng nói' : '🔇 Đã tắt tự đọc');
+  toast(autoSpeak ? T('🔊 Sẽ tự đọc to câu trả lời cho tin nhắn giọng nói','🔊 Voice replies will be read aloud') : T('🔇 Đã tắt tự đọc','🔇 Auto-speak off'));
 };
 renderAutoSpeak();
 
 let rec = null, recChunks = [];
 $('#btnMic').onclick = async ()=>{
   if(rec && rec.state === 'recording'){ rec.stop(); return; }
-  if(!store.get('apiKey','')){ toast('Chưa có API key — vào ⚙️ Cài đặt nhé'); switchView('settings'); return; }
+  if(!store.get('apiKey','')){ toast(T('Chưa có API key — vào ⚙️ Cài đặt nhé','No API key yet — see ⚙️ Settings')); switchView('settings'); return; }
   if(!navigator.mediaDevices || !window.MediaRecorder){
-    toast('Micro cần chạy qua https (mở bản trên GitHub Pages) hoặc trình duyệt chưa hỗ trợ', 4000); return;
+    toast(T('Micro cần chạy qua https (mở bản trên GitHub Pages) hoặc trình duyệt chưa hỗ trợ','The microphone needs https (use the hosted version) or this browser lacks support'), 4000); return;
   }
   try{
     const stream = await navigator.mediaDevices.getUserMedia({audio:true});
@@ -707,15 +727,15 @@ $('#btnMic').onclick = async ()=>{
     rec.onstop = ()=>{
       stream.getTracks().forEach(t=>t.stop());
       $('#btnMic').classList.remove('rec'); $('#btnMic').textContent='🎤';
-      $('#chatStatus').textContent = 'Bạn trò chuyện thoải mái — mình không ngắt lời sửa lỗi đâu 😉';
+      $('#chatStatus').textContent = T('Bạn trò chuyện thoải mái — mình không ngắt lời sửa lỗi đâu 😉',"Chat freely — I won't interrupt to correct you 😉");
       const blob = new Blob(recChunks, {type: (rec.mimeType || mime || 'audio/webm').split(';')[0]});
-      if(blob.size < 1500){ toast('Đoạn ghi quá ngắn, thử lại nhé'); return; }
+      if(blob.size < 1500){ toast(T('Đoạn ghi quá ngắn, thử lại nhé','Recording too short — try again')); return; }
       sendVoice(blob);
     };
     rec.start();
     $('#btnMic').classList.add('rec'); $('#btnMic').textContent='⏹';
-    $('#chatStatus').textContent = '🎙 Đang nghe… nói xong bấm ⏹';
-  }catch(e){ toast('Không mở được micro: '+e.message, 3500); }
+    $('#chatStatus').textContent = T('🎙 Đang nghe… nói xong bấm ⏹','🎙 Listening… tap ⏹ when done');
+  }catch(e){ toast(T('Không mở được micro: ','Could not open the microphone: ')+e.message, 3500); }
 };
 function blobToB64(blob){
   return new Promise((res, rej)=>{
@@ -735,7 +755,7 @@ async function sendVoice(blob){
       {text:'(This turn is my voice recording.)'}
     ]});
     const sys = CHAT_SYSTEM() + `
-The last user turn is an AUDIO recording of the learner speaking ${L().label} (Vietnamese words may be mixed in).
+The last user turn is an AUDIO recording of the learner speaking ${L().label} (${NAT().label} words may be mixed in).
 First line of your reply must be exactly: YOU_SAID: <what you heard them say, cleaned up lightly>
 Then, from the next line, continue the conversation normally following all the rules above. If the audio is unclear, put your best guess in YOU_SAID and casually ask to confirm.`;
     const out = await gemini(contents, sys);
@@ -751,7 +771,7 @@ Then, from the next line, continue the conversation normally following all the r
     bump('chat');
     if(autoSpeak) speakText(reply);
   }catch(e){
-    addBubble('sys','⚠️ Không gửi được đoạn ghi âm: ' + e.message);
+    addBubble('sys','⚠️ '+T('Không gửi được đoạn ghi âm: ','Could not send the recording: ') + e.message);
   }finally{
     $('#typing').style.display='none'; $('#btnSend').disabled=false; $('#btnMic').disabled=false;
   }
@@ -767,7 +787,7 @@ chatScroll.addEventListener('click', async e=>{
   const sentence = el.closest('.msg').textContent.replace(/🔊\s*$/,'');
   const dlg = $('#wordDlg');
   $('#dlgWord').textContent = raw;
-  $('#dlgBody').innerHTML = '<span class="spin"></span> Đang tra nghĩa…';
+  $('#dlgBody').innerHTML = '<span class="spin"></span> '+T('Đang tra nghĩa…','Looking it up…');
   $('#dlgSave').disabled = true; dlgData = null;
   dlg.showModal();
   try{
@@ -779,12 +799,12 @@ chatScroll.addEventListener('click', async e=>{
     $('#dlgWord').textContent = dlgData.word;
     $('#dlgBody').innerHTML = `<b>${esc(dlgData.ipa)}</b><br>${esc(dlgData.mean)}<br><i>${esc(dlgData.ex)}</i>`;
     if(W().some(w=>w.word===dlgData.word)){
-      $('#dlgBody').innerHTML += '<br><br>✅ Từ này đã có trong sổ từ.';
+      $('#dlgBody').innerHTML += '<br><br>'+T('✅ Từ này đã có trong sổ từ.','✅ Already in your word book.');
     } else {
       $('#dlgSave').disabled = false;
     }
   }catch(err){
-    $('#dlgBody').textContent = '⚠️ ' + (err.message==='NO_KEY'?'Chưa có API key (vào Cài đặt).':err.message);
+    $('#dlgBody').textContent = '⚠️ ' + (err.message==='NO_KEY'?T('Chưa có API key (vào Cài đặt).','No API key yet (see Settings).'):err.message);
   }
 });
 $('#dlgCancel').onclick = ()=> $('#wordDlg').close();
@@ -793,7 +813,7 @@ $('#dlgSave').onclick = ()=>{
   words.push(Object.assign({id: Date.now(), lang: store.get('lang','en'), ease:2.5, ivl:0, due: Date.now(), reps:0, added: today()}, dlgData));
   store.set('words', words);
   $('#wordDlg').close();
-  toast('💾 Đã lưu "'+dlgData.word+'" vào sổ từ');
+  toast(T('💾 Đã lưu "'+dlgData.word+'" vào sổ từ','💾 Saved "'+dlgData.word+'" to your word book'));
   renderVocab();
 };
 
@@ -806,11 +826,11 @@ function nextIvl(w, g){
   if(g===2) return {ease, ivl: ivl===0 ? 1 : Math.round(ivl*ease)};
   return {ease: ease+0.15, ivl: ivl===0 ? 3 : Math.round(ivl*ease*1.3)};
 }
-function ivlLabel(d){ return d===0 ? '<10 phút' : d===1 ? '1 ngày' : d+' ngày'; }
+function ivlLabel(d){ return d===0 ? T('<10 phút','<10 min') : d===1 ? T('1 ngày','1 day') : d+T(' ngày',' days'); }
 let curCard = null;
 function renderVocab(){
   const due = dueWords();
-  $('#headerSub').textContent = due.length ? '📚 '+due.length+' từ chờ ôn' : '';
+  $('#headerSub').textContent = due.length ? '📚 '+due.length+T(' từ chờ ôn',' due') : '';
   $('#dueCount').textContent = due.length;
   $('#wordTotal').textContent = W().length;
   // review card
@@ -825,7 +845,7 @@ function renderVocab(){
   }
   // list
   const list = $('#wordList');
-  list.innerHTML = W().length ? '' : '<div class="hint">Sổ từ trống. Chạm vào từ trong tin nhắn AI để thêm.</div>';
+  list.innerHTML = W().length ? '' : '<div class="hint">'+T('Sổ từ trống. Chạm vào từ trong tin nhắn AI để thêm.','Word book is empty. Tap words in AI messages to add them.')+'</div>';
   renderHanzi();
   [...W()].reverse().forEach(w=>{
     const row = document.createElement('div');
@@ -839,8 +859,8 @@ $('#revSpeak').onclick = ()=> curCard && speakText(curCard.word);
 $('#btnAddWord').onclick = async ()=>{
   const raw = $('#addWordInp').value.trim().toLowerCase();
   if(!raw) return;
-  if(W().some(w=>w.word===raw)){ toast('Từ này đã có trong sổ rồi'); return; }
-  if(!store.get('apiKey','')){ toast('Chưa có API key — vào ⚙️ Cài đặt nhé'); switchView('settings'); return; }
+  if(W().some(w=>w.word===raw)){ toast(T('Từ này đã có trong sổ rồi','That word is already saved')); return; }
+  if(!store.get('apiKey','')){ toast(T('Chưa có API key — vào ⚙️ Cài đặt nhé','No API key yet — see ⚙️ Settings')); switchView('settings'); return; }
   const btn = $('#btnAddWord');
   btn.disabled = true; btn.innerHTML = '<span class="spin"></span>';
   try{
@@ -851,7 +871,7 @@ $('#btnAddWord').onclick = async ()=>{
     store.set('words', words);
     $('#addWordInp').value='';
     renderVocab();
-    toast('💾 Đã thêm "'+(j.word||raw)+'"');
+    toast(T('💾 Đã thêm "'+(j.word||raw)+'"','💾 Added "'+(j.word||raw)+'"'));
   }catch(e){ toast('⚠️ '+e.message, 3000); }
   finally{ btn.disabled=false; btn.textContent='＋ Thêm'; }
 };
@@ -885,14 +905,14 @@ $('#wordList').addEventListener('click', e=>{
   }
   const b = e.target.closest('.del'); if(!b) return;
   const w = words.find(x=>x.id==b.dataset.id);
-  if(w && confirm('Xoá "'+w.word+'" khỏi sổ từ?')){
+  if(w && confirm(T('Xoá "'+w.word+'" khỏi sổ từ?','Remove "'+w.word+'" from your word book?'))){
     words = words.filter(x=>x.id!=b.dataset.id);
     store.set('words', words); renderVocab();
   }
 });
 
 /* ================= Listening (Phase 2) ================= */
-const LISTEN_SYSTEM = () => `You create short listening exercises for a Vietnamese learner of English. ${profileNote()}
+const LISTEN_SYSTEM = () => `You create short listening exercises for a ${NAT().label}-speaking learner of ${L().label}. ${profileNote()}
 Reply ONLY with JSON:
 {"title":"short title in ${L().label}","lines":[{"s":"speaker name or 'Narrator'","t":"one sentence or short utterance"}],"questions":[{"q":"comprehension question in ${L().label}","opts":["A","B","C","D"],"a":0}]}
 ${L().extra ? 'Every line object must ALSO include "p": the '+L().pron+' for that line.' : ''}
@@ -900,9 +920,9 @@ Rules: 8-14 lines total, natural spoken ${L().label} matched to the learner's le
 let lnData = null, lnUtterQueue = [], lnPlaying = false;
 
 $('#btnGenListen').onclick = async ()=>{
-  if(!store.get('apiKey','')){ toast('Chưa có API key — vào ⚙️ Cài đặt nhé'); switchView('settings'); return; }
+  if(!store.get('apiKey','')){ toast(T('Chưa có API key — vào ⚙️ Cài đặt nhé','No API key yet — see ⚙️ Settings')); switchView('settings'); return; }
   const btn = $('#btnGenListen');
-  btn.disabled = true; btn.innerHTML = '<span class="spin"></span> Đang tạo…';
+  btn.disabled = true; btn.innerHTML = '<span class="spin"></span> '+T('Đang tạo…','Generating…');
   try{
     const type = {conversation:'a dialogue between two people', story:'a short story told by a narrator', news:'a short news report read by a presenter'}[$('#lnType').value];
     const topic = $('#lnTopic').value.trim();
@@ -910,18 +930,18 @@ $('#btnGenListen').onclick = async ()=>{
       [{role:'user', parts:[{text:`Create ${type}${topic? ' about: '+topic : ' about a topic the learner would enjoy'}.`}]}],
       LISTEN_SYSTEM(), true);
     lnData = parseJson(out);
-    if(!lnData.lines || !lnData.lines.length) throw new Error('Bài nghe trống, thử lại nhé');
+    if(!lnData.lines || !lnData.lines.length) throw new Error(T('Bài nghe trống, thử lại nhé','Empty exercise — please try again'));
     renderListen();
     bump('listen');
-    toast('🎧 Xong! Bấm ▶️ Nghe');
-  }catch(e){ toast('⚠️ '+(e.message==='NO_KEY'?'Chưa có API key.':e.message), 3500); }
-  finally{ btn.disabled=false; btn.textContent='✨ Tạo bài nghe'; }
+    toast(T('🎧 Xong! Bấm ▶️ Nghe','🎧 Ready! Tap ▶️ Play'));
+  }catch(e){ toast('⚠️ '+(e.message==='NO_KEY'?T('Chưa có API key.','No API key yet.'):e.message), 3500); }
+  finally{ btn.disabled=false; btn.textContent=T('✨ Tạo bài nghe','✨ Generate exercise'); }
 };
 function renderListen(){
   stopTts();
   $('#lnPlayer').style.display='block';
   $('#lnPlayer').classList.add('ln-hidden');
-  $('#btnScriptToggle').textContent='👁 Hiện lời thoại';
+  $('#btnScriptToggle').textContent=T('👁 Hiện lời thoại','👁 Show transcript');
   $('#lnTitle').textContent = lnData.title || 'Listening';
   $('#lnScript').innerHTML = lnData.lines.map((l,i)=>
     `<div class="ln-line" data-i="${i}"><b>${esc(l.s)}:</b>${esc(l.t)}${l.p?`<div class="ln-p">${esc(l.p)}</div>`:''}</div>`).join('');
@@ -951,7 +971,7 @@ if('speechSynthesis' in window){
 $('#lnVoice').onchange = e=> store.set('voice_'+store.get('lang','en'), e.target.value);
 $('#lnRate').oninput = e=> $('#lnRateVal').textContent = e.target.value+'x';
 function speakFrom(idx){
-  if(!('speechSynthesis' in window)){ toast('Trình duyệt này không hỗ trợ đọc TTS'); return; }
+  if(!('speechSynthesis' in window)){ toast(T('Trình duyệt này không hỗ trợ đọc TTS','This browser does not support text-to-speech')); return; }
   stopTts(); lnPlaying = true;
   const rate = +$('#lnRate').value, voice = pickVoice();
   const speakNext = i=>{
@@ -976,7 +996,7 @@ $('#btnStopTts').onclick = stopTts;
 $('#btnScriptToggle').onclick = ()=>{
   const p = $('#lnPlayer');
   p.classList.toggle('ln-hidden');
-  $('#btnScriptToggle').textContent = p.classList.contains('ln-hidden') ? '👁 Hiện lời thoại' : '🙈 Ẩn lời thoại';
+  $('#btnScriptToggle').textContent = p.classList.contains('ln-hidden') ? T('👁 Hiện lời thoại','👁 Show transcript') : T('🙈 Ẩn lời thoại','🙈 Hide transcript');
 };
 $('#lnScript').addEventListener('click', e=>{
   const line = e.target.closest('.ln-line');
@@ -994,13 +1014,105 @@ $('#lnQuiz').addEventListener('click', e=>{
   qc.dataset.done = +qc.dataset.done+1;
   if(+qc.dataset.done === lnData.questions.length){
     const r = +qc.dataset.right, n = lnData.questions.length;
-    $('#lnScore').textContent = (r===n?'🏆 ':'')+`Kết quả: ${r}/${n} câu đúng${r===n?' — tuyệt vời!':r>=n-1?' — tốt lắm!':' — nghe lại một lần nữa nhé!'}`;
+    $('#lnScore').textContent = (r===n?'🏆 ':'')+T(`Kết quả: ${r}/${n} câu đúng${r===n?' — tuyệt vời!':r>=n-1?' — tốt lắm!':' — nghe lại một lần nữa nhé!'}`,`Score: ${r}/${n} correct${r===n?' — excellent!':r>=n-1?' — well done!':' — give it one more listen!'}`);
   }
 });
 
+
+/* ================= Ngôn ngữ giao diện ================= */
+const I18N = {
+"Bạn trò chuyện thoải mái — mình không ngắt lời sửa lỗi đâu 😉":"Chat freely — I won't interrupt to correct you 😉",
+"Buổi mới":"New session","Kết thúc buổi":"End session","Gửi":"Send",
+"💡 Chạm vào một từ trong tin nhắn của AI để lưu vào sổ từ":"💡 Tap any word in an AI message to save it to your word book",
+"TalkMate đang gõ…":"TalkMate is typing…",
+"🎧 Tạo bài nghe mới":"🎧 New listening exercise","Kiểu bài":"Type",
+"Hội thoại 2 người":"Dialogue (2 people)","Câu chuyện ngắn":"Short story","Bản tin ngắn":"Short news report",
+"Chủ đề (bỏ trống = AI tự chọn theo sở thích của bạn)":"Topic (leave empty = AI picks from your interests)",
+"vd: đi du lịch Đà Lạt, đặt món ở nhà hàng…":"e.g. a weekend trip, ordering at a restaurant…",
+"✨ Tạo bài nghe":"✨ Generate exercise",
+"Bài nghe sẽ ưu tiên dùng các từ bạn đang học trong sổ từ.":"Exercises reuse the words you're currently studying.",
+"▶️ Nghe":"▶️ Play","⏹ Dừng":"⏹ Stop","👁 Hiện lời thoại":"👁 Show transcript","🙈 Ẩn lời thoại":"🙈 Hide transcript",
+"Giọng đọc:":"Voice:",
+"Mẹo: nghe 2–3 lần trước rồi mới hiện lời thoại để đối chiếu.":"Tip: listen 2–3 times before revealing the transcript.",
+"❓ Kiểm tra nhanh":"❓ Quick quiz",
+"Ôn từ hôm nay":"Review today",
+"🎉 Không còn từ nào đến hạn ôn.":"🎉 No cards due right now.",
+"Chạm vào từ mới trong lúc trò chuyện để thêm từ.":"Tap new words while chatting to add them.",
+"🔊 Nghe":"🔊 Listen","Xem nghĩa":"Show meaning",
+"Quên":"Again","Khó":"Hard","Nhớ":"Good","Dễ":"Easy","< 10 phút":"< 10 min",
+"✍️ Luyện viết chữ":"✍️ Handwriting practice","▶️ Xem nét":"▶️ Watch strokes","✍️ Tập viết":"✍️ Practice",
+"Sổ từ (":"Word book (",
+"Thêm từ bạn gặp ở nơi khác…":"Add a word you met elsewhere…","＋ Thêm":"＋ Add",
+"🔥 chuỗi ngày học":"🔥 day streak","📚 từ trong sổ":"📚 words saved","💬 buổi trò chuyện":"💬 chat sessions",
+"✅ Hôm nay (15–20 phút là đủ)":"✅ Today (15–20 min is enough)",
+"🧭 Lộ trình tuần của bạn":"🧭 Your weekly plan",
+"Bấm nút bên dưới — AI sẽ đọc nhật ký học thật của bạn (từ hay quên, các buổi trò chuyện, mức đều đặn) và soạn kế hoạch 7 ngày cụ thể, không chung chung.":"Tap the button below — the AI reads your real study log (words you keep forgetting, past sessions, consistency) and writes a concrete 7-day plan. No generic advice.",
+"✨ Soạn lộ trình tuần mới":"✨ Write my weekly plan",
+"🌐 Ngôn ngữ giao diện":"🌐 Interface language",
+"Kết nối Gemini":"Gemini connection","Dán API key vào đây":"Paste your API key here",
+"gemini-2.5-flash (khuyên dùng)":"gemini-2.5-flash (recommended)","gemini-2.5-flash-lite (nhẹ, nhanh)":"gemini-2.5-flash-lite (light, fast)","gemini-2.5-pro (thông minh hơn, chậm hơn)":"gemini-2.5-pro (smarter, slower)",
+"🔌 Kiểm tra kết nối":"🔌 Test connection",
+"Hồ sơ học":"Learner profile","Ngôn ngữ muốn học":"Language to learn",
+"🇬🇧 Tiếng Anh":"🇬🇧 English","🇨🇳 Tiếng Trung":"🇨🇳 Chinese","🇯🇵 Tiếng Nhật":"🇯🇵 Japanese","🇰🇷 Tiếng Hàn":"🇰🇷 Korean","🇫🇷 Tiếng Pháp":"🇫🇷 French","🇪🇸 Tiếng Tây Ban Nha":"🇪🇸 Spanish",
+"Mỗi ngôn ngữ có sổ từ và giọng đọc riêng — đổi qua lại không mất dữ liệu.":"Each language keeps its own word book and voice — switch any time, nothing is lost.",
+"Trình độ hiện tại":"Current level",
+"Mới bắt đầu (A1–A2)":"Beginner (A1–A2)","Trung cấp (B1–B2)":"Intermediate (B1–B2)","Khá – nâng cao (C1)":"Upper – advanced (C1)",
+"Chủ đề bạn thích trò chuyện":"Topics you enjoy chatting about",
+"vd: du lịch, công nghệ, phim ảnh, ẩm thực…":"e.g. travel, tech, movies, food…",
+"Chế độ mất gốc 🌱":"Foundation mode 🌱","Cỡ chữ":"Font size",
+"Nhỏ":"Small","Vừa":"Medium","Lớn":"Large","Rất lớn":"Extra large",
+"Dữ liệu":"Your data",
+"Từ vựng + tiến độ ôn + nhật ký buổi học. Dùng để chuyển giữa hai điện thoại (không kèm API key).":"Word book + review progress + session log. Use it to move between phones (API key not included).",
+"⬇️ Xuất file":"⬇️ Export","⬆️ Nhập file":"⬆️ Import",
+"Nhật ký buổi học":"Session log","Chưa có buổi nào.":"No sessions yet.","Lưu cài đặt":"Save settings",
+"Trò chuyện":"Chat","Nghe":"Listen","Từ vựng":"Words","Lộ trình":"Plan","Cài đặt":"Settings",
+"Đóng":"Close","💾 Lưu vào sổ từ":"💾 Save to word book",
+"Nhắn bằng tiếng Anh…":"Type a message…",
+"Tô từng nét theo đúng thứ tự vào khung (sai 2 lần sẽ có gợi ý)":"Trace each stroke in order (a hint appears after 2 misses)"
+};
+const I18N_REV = Object.fromEntries(Object.entries(I18N).map(([v,e])=>[e,v]));
+const HW_GUIDE_HEAD = {vi:'📖 Quy tắc thứ tự nét — chạm chữ mẫu để xem minh hoạ', en:'📖 Stroke-order rules — tap an example to watch it'};
+const HW_RULES = [
+ {vi:['Ngang trước, sổ sau',' — nét ngang 一 viết trước nét sổ 丨 '], en:['Horizontal before vertical',' — the horizontal stroke 一 comes before the vertical 丨 '], ex:['十','干']},
+ {vi:['Phẩy trước, mác sau',' — nét phẩy 丿 (trái) trước nét mác ㇏ (phải) '], en:['Left-falling before right-falling',' — the left stroke 丿 before the right stroke ㇏ '], ex:['八','人']},
+ {vi:['Trên trước, dưới sau',' — viết từ trên xuống '], en:['Top before bottom',' — write from top to bottom '], ex:['三','早']},
+ {vi:['Trái trước, phải sau',' — bộ phận bên trái viết trước '], en:['Left before right',' — the left component comes first '], ex:['明','好']},
+ {vi:['Ngoài trước, trong sau',' — khung ngoài viết trước phần ruột '], en:['Outside before inside',' — draw the frame before what is inside '], ex:['月','同']},
+ {vi:['Vào nhà rồi mới đóng cửa',' — khung kín: viết khung ➜ ruột ➜ nét ngang đáy đóng lại cuối cùng '], en:['Enter the house, then close the door',' — enclosed boxes: frame ➜ contents ➜ bottom stroke last '], ex:['国','回']},
+ {vi:['Giữa trước, hai bên sau',' — khi có nét sổ ở giữa '], en:['Middle before the sides',' — when a vertical stroke runs through the center '], ex:['小','水']}
+];
+function hwGuideHtml(){
+  const en = UI()==='en';
+  return '<summary style="cursor:pointer;font-size:14px;color:var(--brand);font-weight:600">'+(en?HW_GUIDE_HEAD.en:HW_GUIDE_HEAD.vi)+'</summary><div class="hw-rules">'+
+    HW_RULES.map((r,i)=>{
+      const [b,rest] = en ? r.en : r.vi;
+      return '<div class="hw-rule">'+(i+1)+'. <b>'+b+'</b>'+rest+'<span class="hw-exs">'+r.ex.map(c=>'<button class="hw-ex">'+c+'</button>').join('')+'</span></div>';
+    }).join('')+'</div>';
+}
+function applyUI(){
+  const en = UI()==='en', map = en ? I18N : I18N_REV;
+  const tw = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+  const nodes=[]; let n;
+  while(n=tw.nextNode()) nodes.push(n);
+  nodes.forEach(node=>{
+    const key = node.nodeValue.trim();
+    if(key && Object.prototype.hasOwnProperty.call(map,key)) node.nodeValue = node.nodeValue.replace(key, map[key]);
+  });
+  document.querySelectorAll('[placeholder]').forEach(el=>{ const k=el.placeholder.trim(); if(map[k]) el.placeholder=map[k]; });
+  document.querySelectorAll('[title]').forEach(el=>{ const k=el.title.trim(); if(map[k]) el.title=map[k]; });
+  $('#kHint').innerHTML = en
+    ? 'Get a free key at <a href="https://aistudio.google.com" target="_blank" rel="noopener">aistudio.google.com</a> → API keys. The key is stored only on your device.'
+    : 'Lấy key miễn phí tại <a href="https://aistudio.google.com" target="_blank" rel="noopener">aistudio.google.com</a> → API keys. Key chỉ lưu trong máy bạn.';
+  $('#fHint').innerHTML = en
+    ? 'The AI uses very simple sentences <b>with a translation under each one</b>. You can even type in your own language — the AI shows you how to say it, then keeps chatting.'
+    : 'AI dùng câu thật đơn giản, <b>kèm dịch nghĩa dưới mỗi câu</b>. Bạn gõ tiếng Việt cũng được — AI sẽ chỉ cách nói câu đó bằng ngôn ngữ bạn học rồi trò chuyện tiếp.';
+  $('#footHint').textContent = en ? 'TalkMate · your data stays on your device' : 'TalkMate · dữ liệu nằm trong máy bạn';
+  $('#hwGuide').innerHTML = hwGuideHtml();
+}
+
 /* ================= Luyện viết chữ (hanzi-writer) ================= */
 let hwWriter=null, hwWord=null, hwChar=null, hwLibP=null;
-function langName(){ return L().name.replace(/[\u{1F1E6}-\u{1F1FF}]/gu,'').trim(); }
+function langName(){ return UI()==='en' ? L().label.replace(' (Mandarin)','') : L().name.replace(/[\u{1F1E6}-\u{1F1FF}]/gu,'').trim(); }
 function hanziChars(str){ return [...String(str)].filter(c=>/[\u3400-\u9fff]/.test(c)); }
 function ensureHanzi(){
   if(window.HanziWriter) return Promise.resolve();
@@ -1009,7 +1121,7 @@ function ensureHanzi(){
     const sc=document.createElement('script');
     sc.src='https://cdn.jsdelivr.net/npm/hanzi-writer@3/dist/hanzi-writer.min.js';
     sc.onload=res;
-    sc.onerror=()=>{ hwLibP=null; rej(new Error('Không tải được thư viện luyện chữ — kiểm tra mạng rồi thử lại')); };
+    sc.onerror=()=>{ hwLibP=null; rej(new Error(T('Không tải được thư viện luyện chữ — kiểm tra mạng rồi thử lại','Could not load the writing library — check your connection and retry'))); };
     document.head.appendChild(sc);
   });
   return hwLibP;
@@ -1020,7 +1132,7 @@ function renderHanzi(){
   card.style.display='block';
   if(!hwWord || !W().some(w=>w.id===hwWord.id)) hwWord = dueWords()[0] || [...W()].reverse()[0] || null;
   if(!hwWord){
-    $('#hwInfo').textContent='Lưu từ vào sổ (chạm vào chữ trong tin nhắn AI) rồi quay lại đây luyện viết nhé.';
+    $('#hwInfo').textContent=T('Lưu từ vào sổ (chạm vào chữ trong tin nhắn AI) rồi quay lại đây luyện viết nhé.','Save some words first (tap characters in AI messages), then come back to practice writing.');
     $('#hwChars').innerHTML=''; $('#hwBox').innerHTML=''; return;
   }
   $('#hwInfo').innerHTML = `<b>${esc(hwWord.word)}</b> ${esc(hwWord.ipa)} — ${esc(hwWord.mean)}`;
@@ -1036,7 +1148,8 @@ async function loadHwChar(){
     await ensureHanzi();
     $('#hwBox').innerHTML='';
     hwWriter = HanziWriter.create('hwBox', hwChar, {width:240, height:240, padding:12,
-      showOutline:true, strokeColor:'#0f766e', drawingWidth:22, showHintAfterMisses:2});
+      showOutline:true, strokeColor:'#0f766e', drawingWidth:22, showHintAfterMisses:2,
+      strokeAnimationSpeed:0.9, delayBetweenStrokes:350});
   }catch(e){ $('#hwStatus').textContent='⚠️ '+e.message; }
 }
 $('#hwChars').addEventListener('click', e=>{
@@ -1046,11 +1159,20 @@ $('#hwChars').addEventListener('click', e=>{
   loadHwChar();
 });
 $('#btnHwAnim').onclick = ()=>{ if(hwWriter){ speakText(hwWord?hwWord.word:hwChar); hwWriter.animateCharacter(); } };
+$('#hwGuide').addEventListener('click', async e=>{
+  const b = e.target.closest('.hw-ex'); if(!b) return;
+  e.preventDefault();
+  hwChar = b.textContent.trim();
+  $$('#hwChars .hw-char').forEach(x=>x.classList.remove('on'));
+  await loadHwChar();
+  $('#hwStatus').textContent = T('Chữ mẫu '+hwChar+' — xem thứ tự nét rồi bấm ✍️ Tập viết thử nhé','Example '+hwChar+' — watch the stroke order, then tap ✍️ Practice');
+  if(hwWriter) setTimeout(()=>hwWriter.animateCharacter(), 250);
+});
 $('#btnHwQuiz').onclick = ()=>{
   if(!hwWriter) return;
-  $('#hwStatus').textContent='Tô từng nét theo đúng thứ tự vào khung (sai 2 lần sẽ có gợi ý)';
+  $('#hwStatus').textContent=T('Tô từng nét theo đúng thứ tự vào khung (sai 2 lần sẽ có gợi ý)','Trace each stroke in order (a hint appears after 2 misses)');
   hwWriter.quiz({ onComplete: r=>{
-    $('#hwStatus').textContent = r.totalMistakes===0 ? '🏆 Hoàn hảo — không sai nét nào!' : '🎉 Xong! Sai '+r.totalMistakes+' nét — luyện lại cho nhuyễn nhé';
+    $('#hwStatus').textContent = r.totalMistakes===0 ? T('🏆 Hoàn hảo — không sai nét nào!','🏆 Perfect — not a single wrong stroke!') : T('🎉 Xong! Sai '+r.totalMistakes+' nét — luyện lại cho nhuyễn nhé','🎉 Done! '+r.totalMistakes+' stroke mistakes — practice once more');
     bump('rev');
   }});
 };
@@ -1061,13 +1183,14 @@ function loadSettings(){
   $('#setModel').value = store.get('model','gemini-2.5-flash');
   $('#setLevel').value = store.get('level','intermediate');
   $('#setTopics').value = store.get('topics','');
+  $('#setUi').value = store.get('ui','vi');
   $('#setLang').value = store.get('lang','en');
   $('#setFoundation').checked = store.get('foundation', false);
   $('#setFont').value = String(store.get('fontSize', 16));
 }
 function applyFont(){
   document.documentElement.style.setProperty('--fs', store.get('fontSize',16)+'px');
-  $('#chatInput').placeholder = store.get('foundation',false) ? 'Gõ '+langName()+' hoặc tiếng Việt đều được…' : 'Nhắn bằng '+langName()+'…';
+  $('#chatInput').placeholder = store.get('foundation',false) ? T('Gõ '+langName()+' hoặc tiếng Việt đều được…','Type in '+langName()+' or your own language…') : T('Nhắn bằng '+langName()+'…','Message in '+langName()+'…');
 }
 $('#btnSaveSet').onclick = ()=>{
   store.set('apiKey', $('#setKey').value.trim());
@@ -1077,25 +1200,27 @@ $('#btnSaveSet').onclick = ()=>{
   store.set('foundation', $('#setFoundation').checked);
   store.set('fontSize', +$('#setFont').value);
   const newLang = $('#setLang').value, langChanged = newLang !== store.get('lang','en');
-  store.set('lang', newLang);
+  const newUi = $('#setUi').value, uiChanged = newUi !== store.get('ui','vi');
+  store.set('lang', newLang); store.set('ui', newUi);
+  if(uiChanged){ applyUI(); renderVocab(); renderCoach(); renderSessions(); }
   applyFont(); renderChat();
   if(langChanged){
     hwWord = null; hwChar = null;
     renderVocab(); renderCoach(); loadVoices();
-    toast('✅ Đã chuyển sang học '+langName()+'!');
-  } else toast('✅ Đã lưu cài đặt');
+    toast(T('✅ Đã chuyển sang học '+langName()+'!','✅ Now learning '+langName()+'!'));
+  } else toast(T('✅ Đã lưu cài đặt','✅ Settings saved'));
 };
 $('#btnTestKey').onclick = async ()=>{
   store.set('apiKey', $('#setKey').value.trim());
   store.set('model', $('#setModel').value);
   const btn = $('#btnTestKey');
-  btn.disabled = true; btn.innerHTML = '<span class="spin"></span> Đang kiểm tra…';
+  btn.disabled = true; btn.innerHTML = '<span class="spin"></span> '+T('Đang kiểm tra…','Testing…');
   try{
     await gemini([{role:'user', parts:[{text:'Say OK'}]}], 'Reply with exactly: OK');
-    toast('✅ Kết nối tốt — dùng được rồi!');
+    toast(T('✅ Kết nối tốt — dùng được rồi!','✅ Connected — you are all set!'));
     renderChat();
-  }catch(e){ toast('⚠️ '+(e.message==='NO_KEY'?'Bạn chưa dán API key vào ô phía trên':e.message), 4000); }
-  finally{ btn.disabled=false; btn.textContent='🔌 Kiểm tra kết nối'; }
+  }catch(e){ toast('⚠️ '+(e.message==='NO_KEY'?T('Bạn chưa dán API key vào ô phía trên','Paste an API key in the field above first'):e.message), 4000); }
+  finally{ btn.disabled=false; btn.textContent=T('🔌 Kiểm tra kết nối','🔌 Test connection'); }
 };
 $('#btnExport').onclick = ()=>{
   const data = { app:'talkmate', v:1, exported: new Date().toISOString(),
@@ -1105,14 +1230,14 @@ $('#btnExport').onclick = ()=>{
   a.href = URL.createObjectURL(blob);
   a.download = 'talkmate-'+today()+'.json';
   a.click(); URL.revokeObjectURL(a.href);
-  toast('⬇️ Đã xuất file dữ liệu');
+  toast(T('⬇️ Đã xuất file dữ liệu','⬇️ Data exported'));
 };
 $('#btnImport').onclick = ()=> $('#importFile').click();
 $('#importFile').onchange = async e=>{
   const f = e.target.files[0]; if(!f) return;
   try{
     const data = JSON.parse(await f.text());
-    if(data.app!=='talkmate') throw new Error('File không đúng định dạng TalkMate');
+    if(data.app!=='talkmate') throw new Error(T('File không đúng định dạng TalkMate','Not a TalkMate data file'));
     let added = 0;
     (data.words||[]).forEach(w=>{
       if(!words.some(x=>x.word===w.word)){ words.push(w); added++; }
@@ -1126,15 +1251,15 @@ $('#importFile').onchange = async e=>{
     if(data.topics) store.set('topics', data.topics);
     if(data.days) store.set('days', Object.assign(store.get('days',{}), data.days));
     loadSettings(); renderVocab(); renderSessions(); renderCoach();
-    toast('⬆️ Đã nhập: thêm '+added+' từ mới');
+    toast(T('⬆️ Đã nhập: thêm '+added+' từ mới','⬆️ Imported: '+added+' new words'));
   }catch(err){ toast('⚠️ '+err.message); }
   e.target.value='';
 };
 function renderSessions(){
   const el = $('#sessionLog');
-  if(!sessions.length){ el.textContent='Chưa có buổi nào.'; return; }
+  if(!sessions.length){ el.textContent=T('Chưa có buổi nào.','No sessions yet.'); return; }
   el.innerHTML = sessions.slice(-7).reverse().map(s=>
-    `<div style="padding:4px 0">🗓 ${s.date.slice(0,10)} — ${s.msgs} tin nhắn</div>`).join('');
+    `<div style="padding:4px 0">🗓 ${s.date.slice(0,10)} — ${s.msgs} ${T('tin nhắn','messages')}</div>`).join('');
 }
 
 /* ================= nav & init ================= */
@@ -1155,7 +1280,7 @@ $('#chatInput').addEventListener('input', function(){ this.style.height='auto'; 
 $('#btnEndChat').onclick = endSession;
 $('#btnNewChat').onclick = newChat;
 
-loadSettings(); applyFont(); renderChat(); renderVocab(); renderSessions(); renderCoach();
+loadSettings(); applyUI(); applyFont(); renderChat(); renderVocab(); renderSessions(); renderCoach();
 
 /* PWA: chỉ đăng ký service worker khi chạy qua http(s) */
 if('serviceWorker' in navigator && location.protocol.startsWith('http')){

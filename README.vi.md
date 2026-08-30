@@ -14,6 +14,7 @@ Không server, không tài khoản — chạy bằng Gemini API key miễn phí 
 - **🎧 Nghe**: AI tạo bài nghe (hội thoại / câu chuyện / bản tin) theo trình độ và chủ đề bạn thích, tự chèn các từ bạn đang học. Lời thoại làm mờ để luyện nghe "chay", chỉnh tốc độ 0.6x–1.2x, quiz 3 câu cuối bài.
 - **📚 Từ vựng**: ôn thẻ theo thuật toán SM-2 (Quên / Khó / Nhớ / Dễ), tự phát âm khi lật thẻ, thêm từ thủ công. Tiếng Trung: khung ✍️ luyện viết — xem hoạt hình thứ tự nét rồi tô theo.
 - **🧭 Lộ trình**: chuỗi ngày học 🔥, checklist 3 việc mỗi ngày, và nút soạn kế hoạch 7 ngày — AI đọc đúng dữ liệu học của bạn (từ hay quên, các buổi chat), cấm nhận xét chung chung.
+- **🌐 Giao diện song ngữ**: chọn Tiếng Việt hoặc English trong Cài đặt — AI cũng giải thích, dịch nghĩa, soạn lộ trình theo ngôn ngữ đó, nên người nước ngoài cũng dùng được.
 - **🌱 Chế độ mất gốc** (cho người mới bắt đầu lại): AI dùng câu thật đơn giản kèm dịch tiếng Việt dưới mỗi câu; gõ tiếng Việt cũng được — AI chỉ cách nói rồi trò chuyện tiếp. Cỡ chữ chỉnh tới Rất lớn.
 
 ## Chạy thử trên máy tính
